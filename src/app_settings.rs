@@ -21,14 +21,14 @@ impl Default for Zoom {
 
 impl Zoom {
     /// Creates a new [Point] by multiplying the old one's coordinates on a given number, then shifting its position.
-    pub fn multi_and_shift (&self, point: Point) -> Point {
+    pub fn apply (&self, point: Point) -> Point {
         let mut result = point;
         result.x *= self.scale;
         result.y *= self.scale;
         result + self.shift
     }
-    /// Draws back the effect of [multi_and_shift].
-    pub fn multi_reverse(&self, point: Point) -> Point {
+    /// Draws back the effect of [Zoom::multi_and_shift].
+    pub fn reverse(&self, point: Point) -> Point {
         let mut result = point;
         result = result - self.shift;
         result.x /= self.scale;
@@ -97,7 +97,7 @@ pub enum Change {
     Resize(f32),
     Circles(bool),
     Dots(bool),
-    Primitives(bool),
+    Lines(bool),
     GridMode(&'static str)
 }
 
@@ -107,7 +107,7 @@ pub struct AppSettings {
     pub zoom: Zoom,
     pub grid: Grid,
     pub dots_show: bool,
-    pub primitives_show: bool,
+    pub lines_show: bool,
     pub circles_show: bool,
     grid_modes: [&'static str; 3]
 }
@@ -133,8 +133,8 @@ impl AppSettings {
             Change::Dots(new) => {
                 self.dots_show = new
             }
-            Change::Primitives(new) => {
-                self.primitives_show = new
+            Change::Lines(new) => {
+                self.lines_show = new
             }
             Change::GridMode(new) => {
                 self.grid.display = new
@@ -145,10 +145,10 @@ impl AppSettings {
         let go_back = button("Go back").on_press(Message::SettingsOpen(false));
         let circles = checkbox("Circles", self.circles_show).on_toggle(|a| Message::SettingsEdit(Change::Circles(a)));
         let dots = checkbox("Dots", self.dots_show).on_toggle(|a| Message::SettingsEdit(Change::Dots(a)));
-        let primitives = checkbox("Primitives", self.primitives_show).on_toggle(|a| Message::SettingsEdit(Change::Primitives(a)));
+        let lines = checkbox("Lines", self.lines_show).on_toggle(|a| Message::SettingsEdit(Change::Lines(a)));
         let grid_mode = iced::widget::pick_list(self.grid_modes, Some(self.grid.display), |a| Message::SettingsEdit(Change::GridMode(a)));
 
-        column![go_back, circles, dots, primitives, grid_mode].into()
+        column![go_back, circles, dots, lines, grid_mode].align_x(Center).into()
     }
 }
 
@@ -159,7 +159,7 @@ impl Default for AppSettings {
             zoom: Default::default(),
             grid: Default::default(),
             dots_show: true,
-            primitives_show: true,
+            lines_show: true,
             circles_show: true,
             grid_modes: ["Circles", "Squares", "None"]
         }

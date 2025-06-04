@@ -11,6 +11,6 @@ pub fn excel_dots () -> Vec<(Point, f32)> {
     dots
 }
 
-pub fn excel_lines() -> Vec<(i32, i32)> {
-    vec![(0, 1), (0, 2), (1, 2)]
+pub fn excel_lines() -> Vec<(i32, i32, i32)> {
+    vec![(0, 1, -1), (0, 2, -1), (1, 2, -1)]
 }

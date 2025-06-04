@@ -25,13 +25,13 @@ impl UndoManager {
             let len = model.dots.len();
             model.dots.push(dot);
             model.dots.swap(len, num);
-            model.replace_primitive(num, len)
+            model.replace_line(num, len)
         });
         self.push(func);
     }
-    fn deleted_primitive (&mut self, primitive: (i32, i32), placement: usize) {
+    fn deleted_line (&mut self, line: (i32, i32, i32), placement: usize) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.lines.insert(placement, primitive);
+            model.lines.insert(placement, line);
         });
         self.push(func)
     }
@@ -41,7 +41,7 @@ impl UndoManager {
         });
         self.push(func);
     }
-    fn pushed_primitive (&mut self) {
+    fn pushed_line (&mut self) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
             model.lines.pop();
         });
@@ -69,7 +69,7 @@ impl UndoManager {
     }
 }
 
-
+/// Main event loop.
 struct VecRed {
     path_to_excel: text_editor::Content,
     journal: UndoManager,
@@ -82,7 +82,7 @@ struct VecRed {
     /// Stands for X, Y, radius.
     change_dot: [text_editor::Content; 3],
 
-    modes: [&'static str; 3],
+    modes: [&'static str; 4],
     mode: &'static str,
 
     app_settings: AppSettings,
@@ -103,7 +103,7 @@ enum Message {
     ChangeDot(usize, text_editor::Action),
     ChangeApply,
     EditScale(&'static str, f32),
-    DeleteDot(usize),
+    DeleteDot,
     Resize(f32),
     Shift(Vector),
     SettingsOpen(bool),
@@ -143,10 +143,12 @@ impl VecRed {
                         self.state.request_redraw();
                     }
                     self.chosen_dot = Some((self.model.dots[a].0, self.model.dots[a].1, a));
-                    self.change_dot = [text_editor::Content::with_text(self.chosen_dot.as_ref().unwrap().0.x.to_string().as_str()),
+                    self.change_dot = [
+                        text_editor::Content::with_text(self.chosen_dot.as_ref().unwrap().0.x.to_string().as_str()),
                         text_editor::Content::with_text(self.chosen_dot.as_ref().unwrap().0.y.to_string().as_str()),
-                        text_editor::Content::with_text(self.chosen_dot.as_ref().unwrap().1.to_string().as_str())]
-                } else if add_model.lines.len() == 1 {
+                        text_editor::Content::with_text(self.chosen_dot.as_ref().unwrap().1.to_string().as_str())
+                    ]
+                } else if add_model.lines.len() == 1 && add_model.lines[0].2 == -1 {
                     let a = self.model.find_point(add_model.dots[0].0, self.scale);
                     if a == self.model.dots.len() {
                         self.journal.pushed_dot();
@@ -158,11 +160,34 @@ impl VecRed {
                         self.model.dots.push((add_model.dots[1].0, self.default_circle));
                     }
                     if a != b {
-                        self.journal.pushed_primitive();
-                        self.model.lines.push((a as i32, b as i32))
+                        self.journal.pushed_line();
+                        self.model.lines.push((a as i32, b as i32, -1))
                     }
                     self.state.request_redraw();
                     self.chosen_dot = None
+                } else if add_model.lines.len() == 1 {
+                    let a = self.model.find_point(add_model.dots[0].0, self.scale);
+                    if a >= self.model.dots.len() {
+                        self.journal.pushed_dot();
+                        self.model.dots.push(add_model.dots[0])
+                    }
+                    let b = self.model.find_point(add_model.dots[1].0, self.scale);
+                    if b >= self.model.dots.len() {
+                        self.journal.pushed_dot();
+                        self.model.dots.push(add_model.dots[1])
+                    }
+                    let c = self.model.find_point(add_model.dots[2].0, self.scale);
+                    if c >= self.model.dots.len() {
+                        self.journal.pushed_dot();
+                        self.model.dots.push(add_model.dots[2])
+                    }
+
+                    if a != b && a != c && b != c {
+                        self.journal.pushed_line();
+                        self.model.lines.push((a as i32, b as i32, c as i32))
+                    }
+                    print!("{}, {}, {}\n", a, b, c);
+                    self.state.request_redraw()
                 }
             }
 
@@ -206,17 +231,20 @@ impl VecRed {
                 }
             }
 
-            Message::DeleteDot(num) => {
+            Message::DeleteDot => {
+                let Some((_, _, num)) = self.chosen_dot else {
+                    return
+                };
                 self.model.lines
                     .iter()
                     .enumerate()
                     .rev()
                     .for_each(|(placement, x)| {
-                        if x.0 == num as i32 || x.1 == num as i32 {
-                            self.journal.deleted_primitive(x.clone(), placement)
+                        if x.0 == num as i32 || x.1 == num as i32 || x.2 == num as i32 {
+                            self.journal.deleted_line(x.clone(), placement)
                         }
                     });
-                self.model.lines.retain(|x| { x.0 != num as i32 && x.1 != num as i32 });
+                self.model.lines.retain(|x| { x.0 != num as i32 && x.1 != num as i32 && x.2 != num as i32 });
                 if self.model.dots.len() >= 1 && num != self.model.dots.len() - 1 {
                     self.journal.deleted_dot(self.model.dots[num], num);
                     self.model.dots.swap_remove(num);
@@ -226,7 +254,7 @@ impl VecRed {
                     self.model.dots.pop();
                 }
                 if num != self.model.dots.len() {
-                    self.model.replace_primitive(self.model.dots.len(), num);
+                    self.model.replace_line(self.model.dots.len(), num);
                 }
                 self.chosen_dot = None;
                 self.mode = "Move";
@@ -319,7 +347,7 @@ impl VecRed {
         let dot_y = row![text("Y: "), text_editor(&self.change_dot[1]).on_action(|action| Message::ChangeDot(1, action))];
         let dot_circle = row![text("R: "), text_editor(&self.change_dot[2]).on_action(|action| Message::ChangeDot(2, action))];
         let dot_apply = row![button("Apply").on_press(Message::ChangeApply)];
-        let dot_delete = row![button("Delete").on_press(Message::DeleteDot(self.chosen_dot.as_ref().unwrap().2))];
+        let dot_delete = row![button("Delete").on_press(Message::DeleteDot)];
         column![dot_number, dot_x, dot_y, dot_circle, dot_apply, dot_delete].align_x(Center)
     }
     fn subscription(&self) -> Subscription<Message> {
@@ -332,13 +360,9 @@ impl VecRed {
     fn shortcuts (key: Key, modifiers: keyboard::Modifiers) -> Option<Message> {
         if modifiers.is_empty() {
             return match key {
-                /*Key::Named(Named::Delete) => {
-                    if chosen_dot.is_none() {
-                        None
-                    } else {
-                        Some(Message::DeleteDot(chosen_dot.as_ref().unwrap().2))
-                    }
-                }*/
+                Key::Named(Named::Delete) => {
+                    Some(Message::DeleteDot)
+                }
                 Key::Named(Named::ArrowLeft) => {
                     Some(Message::Shift(Vector::new(100.0, 0.0)))
                 }
@@ -369,7 +393,7 @@ impl VecRed {
                     Key::Named(Named::ArrowDown) => {
                         Some(Message::Shift(Vector::new(0.0, -10.0)))
                     }
-                    _ => {None}
+                    _ => { None }
                 }
             }
             keyboard::Modifiers::CTRL => {
@@ -396,7 +420,7 @@ impl Default for VecRed {
         Self {
             journal: UndoManager{stack: Vec::default(), max_len: 25},
             path_to_excel: text_editor::Content::default(),
-            modes: ["Move", "Dot", "Line"],
+            modes: ["Move", "Dot", "Line", "Arc"],
             mode: "Move",
             chosen_dot: None,
             change_dot: [text_editor::Content::default(), text_editor::Content::default(), text_editor::Content::default()],
@@ -412,10 +436,10 @@ impl Default for VecRed {
 }
 
 
-fn main() {
+fn main() -> iced::Result {
     iced::application("VecRed", VecRed::update, VecRed::view)
         .antialiasing(true)
         .window_size(Size::new(1200.0, 1000.0))
         .subscription(VecRed::subscription)
-        .run().unwrap()
+        .run()
 }
