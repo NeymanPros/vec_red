@@ -2,72 +2,20 @@ mod excel_parse;
 mod framework;
 mod app_settings;
 mod model_instruments;
+mod undo_manager;
+mod grid;
 
-use app_settings::{AppSettings, Change};
-use framework::{State};
+use crate::undo_manager::UndoManager;
+use crate::app_settings::{AppSettings, Change};
+use crate::framework::{State};
 use crate::model_instruments::{Model};
-use excel_parse::{excel_dots, excel_lines};
+use crate::excel_parse::{excel_dots, excel_lines};
 
 use iced::{Point, Vector, Size, Fill, Center, keyboard, Subscription};
 use iced::keyboard::{Key, key::Named};
-use iced::widget::{Column, column, row, container, horizontal_space, text, text_editor, button, Slider, Row};
+use iced::widget::{Column, column, row, container, horizontal_space, text, text_editor, button, Slider, Row, stack};
 
 
-///Contains functions to undo actions
-struct UndoManager {
-    stack: Vec<Box<dyn FnOnce(&mut Model) + Send>>,
-    max_len: usize,
-}
-
-impl UndoManager {
-    fn deleted_dot(&mut self, dot: (Point, f32), num: usize) {
-        let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            let len = model.dots.len();
-            model.dots.push(dot);
-            model.dots.swap(len, num);
-            model.replace_line(num, len)
-        });
-        self.push(func);
-    }
-    fn deleted_line (&mut self, line: (i32, i32, i32), placement: usize) {
-        let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.lines.insert(placement, line);
-        });
-        self.push(func)
-    }
-    fn pushed_dot (&mut self) {
-        let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.dots.pop();
-        });
-        self.push(func);
-    }
-    fn pushed_line (&mut self) {
-        let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.lines.pop();
-        });
-        self.push(func);
-    }
-    fn changed_dot (&mut self, old: (Point, f32), num: usize) {
-        let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.dots[num] = old;
-        });
-        self.stack.push(func);
-    }
-    fn push(&mut self, f: Box<dyn FnOnce(&mut Model) + Send>) {
-        self.stack.push(f);
-        if self.stack.len() >= self.max_len {
-            let _ = self.stack.remove(0);
-        }
-    }
-    fn execute(&mut self) -> Box<dyn FnOnce(&mut Model) + Send> {
-        if let Some(func) = self.stack.pop() {
-            func
-        }
-        else {
-            Box::new(|_|{})
-        }
-    }
-}
 
 /// Main event loop.
 struct VecRed {
@@ -114,7 +62,7 @@ impl VecRed {
     fn update(&mut self, message: Message) {
         match message {
             Message::ChangeMode(new_mode) => {
-                self.mode = new_mode
+                self.mode = new_mode;
             }
 
             Message::EditPath(edited) => {
@@ -127,7 +75,7 @@ impl VecRed {
                 self.model.lines = excel_lines();
                 self.mode = "Move";
                 self.chosen_dot = None;
-                self.journal.stack.clear();
+                self.journal.clear();
                 self.state.request_redraw()
             }
 
@@ -186,7 +134,6 @@ impl VecRed {
                         self.journal.pushed_line();
                         self.model.lines.push((a as i32, b as i32, c as i32))
                     }
-                    print!("{}, {}, {}\n", a, b, c);
                     self.state.request_redraw()
                 }
             }
@@ -262,7 +209,7 @@ impl VecRed {
             }
 
             Message::Undo => {
-                self.journal.execute()(&mut self.model);
+                self.journal.undo()(&mut self.model);
                 self.mode = "Move";
                 self.state.request_redraw()
             }
@@ -270,14 +217,14 @@ impl VecRed {
             Message::ClearAll => {
                 self.model.dots.clear();
                 self.model.lines.clear();
-                self.journal.stack.clear();
+                self.journal.clear();
                 self.chosen_dot = None;
                 self.state.request_redraw()
             }
 
             Message::Resize(extent) => {
                 if extent == 0.0 {
-                    self.app_settings.zoom.scale = 0.0;
+                    self.app_settings.zoom.scale = 1.0;
                     self.app_settings.zoom.shift = Vector::default()
                 } else {
                     self.app_settings.zoom.scale *= extent
@@ -295,7 +242,8 @@ impl VecRed {
                 self.app_settings.shown = new_value;
                 if new_value == false {
                     self.mode = "Move";
-                    self.state.request_redraw()
+                    self.state.request_redraw();
+                    self.app_settings.grid.redraw()
                 }
             }
 
@@ -305,22 +253,24 @@ impl VecRed {
         }
     }
 
-    fn view(&self) -> iced::Element<Message> {
+    fn view(&self) -> iced::Element<'_, Message> {
         if self.app_settings.shown {
             self.app_settings.view()
         }
         else {
             let blueprint = container(self.state.view(&self.model, self.scale, &self.app_settings, self.mode).map(Message::Def))
                 .width(Fill).height(Fill);
+            let grid = container(self.app_settings.grid.view())
+                .width(Fill).height(Fill);
 
-            row![blueprint, horizontal_space().height(Fill).width(10.0), self.side_panel().width(200).height(Fill)].into()
+            row![stack!(blueprint, grid), horizontal_space().height(Fill).width(10.0), self.side_panel().width(200).height(Fill)].into()
         }
     }
 }
 
 impl VecRed {
-    fn side_panel(&self) -> Column<Message> {
-        let mode = iced::widget::pick_list(self.modes, Some(self.mode), Message::ChangeMode);
+    fn side_panel(&self) -> Column<'_, Message> {
+        let mode = iced::widget::PickList::new(self.modes, Some(self.mode), Message::ChangeMode);
         let for_path = text_editor(&self.path_to_excel).on_action(Message::EditPath);
         let get_data = button("Hello").on_press(Message::GetData);
         let clear_frame = button("Clear all").on_press(Message::ClearAll);
@@ -341,7 +291,7 @@ impl VecRed {
             clear_frame, undo_button, settings).spacing(5).align_x(Center)
     }
 
-    fn about_dot(&self, num: String) -> Column<Message> {
+    fn about_dot(&self, num: String) -> Column<'_, Message> {
         let dot_number = text("Number of dot: ".to_owned() + num.as_str());
         let dot_x: Row<Message> = row![text("X: "), text_editor(&self.change_dot[0]).on_action(|action| Message::ChangeDot(0, action))];
         let dot_y = row![text("Y: "), text_editor(&self.change_dot[1]).on_action(|action| Message::ChangeDot(1, action))];
@@ -418,7 +368,7 @@ impl VecRed {
 impl Default for VecRed {
     fn default() -> Self {
         Self {
-            journal: UndoManager{stack: Vec::default(), max_len: 25},
+            journal: UndoManager::default(),
             path_to_excel: text_editor::Content::default(),
             modes: ["Move", "Dot", "Line", "Arc"],
             mode: "Move",

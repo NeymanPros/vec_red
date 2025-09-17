@@ -5,5 +5,4 @@ edition = "2021"
 
 [dependencies]
 iced = {version = "0.13.1", features=["canvas"]}
-tokio = {version = "1.44.1", features = ["rt-multi-thread", "macros"]}
 rand = {version = "0.9.0"}

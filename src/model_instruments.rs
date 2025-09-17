@@ -5,7 +5,7 @@ use iced::widget::canvas::{Geometry, Path, Stroke};
 use iced::widget::canvas::path::Arc;
 use crate::app_settings::{AppSettings, Zoom};
 
-/// Tools to draw [Framework]
+/// Tools to draw [Framework].
 #[derive(Clone, Debug, Default)]
 pub struct Model {
     pub dots: Vec<(Point, f32)>,
@@ -84,6 +84,28 @@ impl Model {
     }
 }
 
+impl Model {
+    pub fn export (&self) -> String {
+        let mut output = String::new();
+        output += "p1\tp2\tr\n";
+        for point in &self.dots {
+            let p1 = point.0.x.to_string();
+            let p2 = point.0.y.to_string();
+            let p3 = point.1.to_string();
+            output += (p1 + "\t" + p2.as_str() + "\t" + p3.as_str() + "\n").as_str();
+        }
+        output += "l1\tl2\tl3\n";
+        for line in &self.lines {
+            let l1 = line.0.to_string();
+            let l2 = line.1.to_string();
+            let l3 = line.2.to_string();
+            output += (l1 + "\t" + l2.as_str() + "\t" + l3.as_str() + "\n").as_str();
+        }
+        
+        output
+    }
+}
+
 /// Is used to work with [Model] elements
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Drawing {
@@ -120,7 +142,7 @@ impl Drawing {
                                  Stroke::default().with_width(scale).with_color(Color::from_rgb8(255, 0, 0)));
                 }
             }
-            Self::SelectDot { dot, mut num } => {
+            Self::SelectDot { dot, num } => {
                 if num < dots.len() {
                     Self::default_dot(&mut frame, zoom, scale, dots, dot, Some(num));
                 }

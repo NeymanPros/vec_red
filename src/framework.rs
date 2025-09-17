@@ -29,36 +29,48 @@ impl Framework<'_> {
                         _ => Drawing::None {}
                     };
                 }
+                let real_cursor = zoom.reverse(cursor_pos);
                 match *state {
                     Drawing::Dot {} => {
-                        let a = self.model.find_point(zoom.apply(cursor_pos), self.scale);
-                        *state = Drawing::SelectDot { dot: zoom.reverse(cursor_pos), num: a };
-                        Some(Model { dots: vec![(zoom.reverse(cursor_pos), 0.0)], lines: vec![] })
+                        let a = self.model.find_point(real_cursor, self.scale);
+                        *state = Drawing::SelectDot { dot: real_cursor, num: a };
+                        Some(Model { dots: vec![(real_cursor, 0.0)], lines: vec![] })
                     }
                     Drawing::Line {} => {
-                        *state = Drawing::LineDot { dot: zoom.reverse(cursor_pos), num: None };
+                        *state = Drawing::LineDot { dot: real_cursor, num: None };
 
                         None
                     }
-                    Drawing::LineDot { dot, num } => {
+                    Drawing::LineDot { mut dot, num } => {
                         *state = Drawing::Line {};
+                        if num.is_some() && num.unwrap() < self.model.dots.len() {
+                            dot = self.model.dots[num.unwrap()].0
+                        }
 
-                        Some(Model { dots: vec![(dot, 0.0), (zoom.reverse(cursor_pos), 0.0)], lines: vec![(0, 1, -1)] })
+                        Some(Model { dots: vec![(dot, 0.0), (real_cursor, 0.0)], lines: vec![(0, 1, -1)] })
                     }
                     Drawing::Arc {} => {
-                        *state = Drawing::ArcDot { dot: zoom.reverse(cursor_pos), num: None };
+                        *state = Drawing::ArcDot { dot: real_cursor, num: None };
 
                         None
                     }
                     Drawing::ArcDot { dot, num } => {
-                        *state = Drawing::ArcTwoDots { dot_one: dot, num_one: num, dot_two: zoom.reverse(cursor_pos), num_two: None };
+                        *state = Drawing::ArcTwoDots { dot_one: dot, num_one: num, dot_two: real_cursor, num_two: None };
 
                         None
                     }
-                    Drawing::ArcTwoDots { dot_one, dot_two, .. } => {
+                    Drawing::ArcTwoDots { mut dot_one, mut dot_two, num_one, num_two } => {
                         *state = Drawing::Arc {};
 
-                        Some(Model { dots: vec![(dot_one, 0.0), (dot_two, 0.0), (zoom.reverse(cursor_pos), 0.0)], lines: vec![(0, 1, 2)] })
+                        if num_one.is_some() && num_one.unwrap() < self.model.dots.len() {
+                            dot_one = self.model.dots[num_one.unwrap()].0
+                        }
+                        if num_two.is_some() && num_two.unwrap() < self.model.dots.len() {
+                            dot_two = self.model.dots[num_two.unwrap()].0
+                        }
+
+
+                        Some(Model { dots: vec![(dot_one, 0.0), (dot_two, 0.0), (real_cursor, 0.0)], lines: vec![(0, 1, 2)] })
                     }
                     _ => {
                         *state = Drawing::None {};
@@ -107,7 +119,8 @@ impl canvas::Program<Model> for Framework<'_> {
     type State = Drawing;
 
     fn update(&self, state: &mut Self::State, event: Event, bounds: Rectangle, cursor: Cursor) -> (Status, Option<Model>) {
-        if self.mode == "Line" {
+        if self.mode == state.as_str() {
+        } else if self.mode == "Line" {
             match *state {
                 Drawing::SelectDot { dot, num } => {
                     *state = Drawing::LineDot { dot, num: Some(num) }
@@ -147,7 +160,6 @@ impl canvas::Program<Model> for Framework<'_> {
 
     fn draw(&self, state: &Self::State, renderer: &Renderer, _theme: &Theme, bounds: Rectangle, cursor: Cursor) -> Vec<Geometry> {
         let content = self.state.cache.draw(renderer, bounds.size(), |frame| {
-            self.app_settings.grid.draw_grid(frame, &self.app_settings.zoom);
             self.model.draw_model(frame, self.scale, &self.app_settings);
         });
 

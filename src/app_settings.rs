@@ -1,12 +1,13 @@
-use iced::{Center, Color, Point, Vector};
-use iced::widget::{button, canvas, checkbox, column, text_input};
-use iced::widget::canvas::{Path, Stroke};
+use iced::{Center, Fill, Point, Vector};
+use iced::widget::{button, checkbox, column, text_input};
 use crate::Message;
+use crate::grid::Grid;
 
 
 #[derive(Copy, Clone)]
 pub struct Zoom {
-    pub scale: f32, // value * zoom
+    /// value * zoom + shift
+    pub scale: f32,
     pub shift: Vector
 }
 
@@ -38,58 +39,6 @@ impl Zoom {
 }
 
 
-pub struct Grid {
-    display: &'static str,
-    distance: f32,
-    thickness: f32,
-    color: Color
-}
-
-impl Grid {
-    pub fn draw_grid(&self, frame: &mut canvas::Frame, zoom: &Zoom) {
-        if self.display == "Squares" {
-            let mut build = Point::default() + zoom.shift;
-            let str = Stroke::default().with_width(self.thickness).with_color(self.color);
-            while build.x < zoom.shift.x + 2000.0 {
-                let line = Path::line(build, build + Vector::new(0.0, 2000.0));
-                frame.stroke(&line, str);
-
-                build.x += self.distance;
-            }
-            build = Point::new(self.distance, self.distance) + zoom.shift;
-            while build.y < zoom.shift.y + 2000.0 {
-                let line = Path::line(build, build + Vector::new(2000.0, 0.0));
-                frame.stroke(&line, str);
-
-                build.y += self.distance;
-            }
-        }
-        else if self.display == "Circles" {
-            let mut build = Point::new(self.distance, self.distance) + zoom.shift;
-            while build.x < zoom.shift.x + 2000.0 {
-                build.y = zoom.shift.y;
-                while build.y < zoom.shift.y + 2000.0 {
-                    let point = Path::circle(build, self.thickness * 2.0);
-                    frame.fill(&point, self.color);
-
-                    build.y += self.distance
-                }
-                build.x += self.distance
-            }
-        }
-    }
-}
-
-impl Default for Grid {
-    fn default() -> Self {
-        Self {
-            thickness: 2.0,
-            distance: 50.0,
-            display: "None",
-            color: Color::from_rgb8(100, 100, 100)
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum Change {
@@ -137,18 +86,18 @@ impl AppSettings {
                 self.lines_show = new
             }
             Change::GridMode(new) => {
-                self.grid.display = new
+                self.grid.set_display(new)
             }
         }
     }
-    pub fn view(&self) -> iced::Element<Message> {
+    pub fn view(&self) -> iced::Element<'_, Message> {
         let go_back = button("Go back").on_press(Message::SettingsOpen(false));
         let circles = checkbox("Circles", self.circles_show).on_toggle(|a| Message::SettingsEdit(Change::Circles(a)));
         let dots = checkbox("Dots", self.dots_show).on_toggle(|a| Message::SettingsEdit(Change::Dots(a)));
         let lines = checkbox("Lines", self.lines_show).on_toggle(|a| Message::SettingsEdit(Change::Lines(a)));
-        let grid_mode = iced::widget::pick_list(self.grid_modes, Some(self.grid.display), |a| Message::SettingsEdit(Change::GridMode(a)));
+        let grid_mode = iced::widget::PickList::new(self.grid_modes, Some(self.grid.get_display()), |a| Message::SettingsEdit(Change::GridMode(a)));
 
-        column![go_back, circles, dots, lines, grid_mode].align_x(Center).into()
+        column![go_back, circles, dots, lines, grid_mode].width(Fill).align_x(Center).into()
     }
 }
 
@@ -156,8 +105,8 @@ impl Default for AppSettings {
     fn default () -> Self {
         Self {
             shown: false,
-            zoom: Default::default(),
-            grid: Default::default(),
+            zoom: Zoom::default(),
+            grid: Grid::default(),
             dots_show: true,
             lines_show: true,
             circles_show: true,
