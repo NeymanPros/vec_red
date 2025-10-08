@@ -278,7 +278,9 @@ impl VecRed {
             let grid = container(self.app_settings.grid.view())
                 .width(Fill).height(Fill);
 
-            row![stack![grid, blueprint], horizontal_space().height(Fill).width(10.0), self.side_panel().width(200).height(Fill)].into()
+            row![stack![grid, blueprint], 
+                horizontal_space().height(Fill).width(10.0), 
+                self.side_panel().width(200).height(Fill)].into()
         }
     }
 }
