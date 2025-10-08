@@ -7,13 +7,13 @@ mod grid;
 
 use crate::undo_manager::UndoManager;
 use crate::app_settings::{AppSettings, Change};
-use crate::framework::{State};
+use crate::framework::{State, Framework};
 use crate::model_instruments::{Model};
 use crate::excel_parse::{excel_dots, excel_lines};
 
 use iced::{Point, Vector, Size, Fill, Center, keyboard, Subscription};
 use iced::keyboard::{Key, key::Named};
-use iced::widget::{Column, column, row, container, horizontal_space, text, text_editor, button, Slider, Row, stack};
+use iced::widget::{Column, column, row, container, horizontal_space, text, text_editor, button, Slider, stack};
 
 
 
@@ -76,7 +76,7 @@ impl VecRed {
                 self.mode = "Move";
                 self.chosen_dot = None;
                 self.journal.clear();
-                self.state.request_redraw()
+                self.state.redraw()
             }
 
             Message::Def(add_model) => {
@@ -88,7 +88,7 @@ impl VecRed {
                     if a >= self.model.dots.len() {
                         self.journal.pushed_dot();
                         self.model.dots.push((add_model.dots[0].0, self.default_circle));
-                        self.state.request_redraw();
+                        self.state.redraw();
                     }
                     self.chosen_dot = Some((self.model.dots[a].0, self.model.dots[a].1, a));
                     self.change_dot = [
@@ -111,7 +111,7 @@ impl VecRed {
                         self.journal.pushed_line();
                         self.model.lines.push((a as i32, b as i32, -1))
                     }
-                    self.state.request_redraw();
+                    self.state.redraw();
                     self.chosen_dot = None
                 } else if add_model.lines.len() == 1 {
                     let a = self.model.find_point(add_model.dots[0].0, self.scale);
@@ -134,7 +134,7 @@ impl VecRed {
                         self.journal.pushed_line();
                         self.model.lines.push((a as i32, b as i32, c as i32))
                     }
-                    self.state.request_redraw()
+                    self.state.redraw()
                 }
             }
 
@@ -163,7 +163,7 @@ impl VecRed {
                         self.journal.changed_dot(self.model.dots[num], num);
                         self.model.dots[num].0 = self.chosen_dot.as_ref().unwrap().0;
                         self.model.dots[num].1 = self.chosen_dot.as_ref().unwrap().1;
-                        self.state.request_redraw();
+                        self.state.redraw();
                     }
                 }
             }
@@ -171,7 +171,7 @@ impl VecRed {
             Message::EditScale(name, new_value) => {
                 if name == "scale" {
                     self.scale = new_value;
-                    self.state.request_redraw();
+                    self.state.redraw();
                 }
                 else if name == "circle" {
                     self.default_circle = new_value
@@ -205,13 +205,13 @@ impl VecRed {
                 }
                 self.chosen_dot = None;
                 self.mode = "Move";
-                self.state.request_redraw();
+                self.state.redraw();
             }
 
             Message::Undo => {
                 self.journal.undo()(&mut self.model);
                 self.mode = "Move";
-                self.state.request_redraw()
+                self.state.redraw()
             }
 
             Message::ClearAll => {
@@ -219,7 +219,7 @@ impl VecRed {
                 self.model.lines.clear();
                 self.journal.clear();
                 self.chosen_dot = None;
-                self.state.request_redraw()
+                self.state.redraw()
             }
 
             Message::Resize(extent) => {
@@ -230,20 +230,23 @@ impl VecRed {
                     self.app_settings.zoom.scale *= extent
                 }
                 self.mode = "Move";
-                self.state.request_redraw()
+                self.state.redraw()
             }
 
             Message::Shift(add_shift) => {
                 self.app_settings.zoom.shift = self.app_settings.zoom.shift + add_shift * (1.0 / self.app_settings.zoom.scale);
-                self.state.request_redraw()
+                self.state.redraw()
             }
 
             Message::SettingsOpen(new_value) => {
                 self.app_settings.shown = new_value;
                 if new_value == false {
                     self.mode = "Move";
-                    self.state.request_redraw();
+                    self.state.redraw();
                     self.app_settings.grid.redraw()
+                }
+                else {
+                    self.app_settings.update(Change::Open)
                 }
             }
 
@@ -258,12 +261,24 @@ impl VecRed {
             self.app_settings.view()
         }
         else {
-            let blueprint = container(self.state.view(&self.model, self.scale, &self.app_settings, self.mode).map(Message::Def))
-                .width(Fill).height(Fill);
+            let blueprint = container(
+                iced::widget::canvas(Framework {
+                    state: &self.state,
+                    model: &self.model,
+                    scale: self.scale,
+                    app_settings: &self.app_settings,
+                    mode: &self.mode
+                })
+                    .width(Fill)
+                    .height(Fill)
+            )
+                .width(Fill)
+                .height(Fill);
+
             let grid = container(self.app_settings.grid.view())
                 .width(Fill).height(Fill);
 
-            row![stack!(blueprint, grid), horizontal_space().height(Fill).width(10.0), self.side_panel().width(200).height(Fill)].into()
+            row![stack![grid, blueprint], horizontal_space().height(Fill).width(10.0), self.side_panel().width(200).height(Fill)].into()
         }
     }
 }
@@ -293,7 +308,7 @@ impl VecRed {
 
     fn about_dot(&self, num: String) -> Column<'_, Message> {
         let dot_number = text("Number of dot: ".to_owned() + num.as_str());
-        let dot_x: Row<Message> = row![text("X: "), text_editor(&self.change_dot[0]).on_action(|action| Message::ChangeDot(0, action))];
+        let dot_x = row![text("X: "), text_editor(&self.change_dot[0]).on_action(|action| Message::ChangeDot(0, action))];
         let dot_y = row![text("Y: "), text_editor(&self.change_dot[1]).on_action(|action| Message::ChangeDot(1, action))];
         let dot_circle = row![text("R: "), text_editor(&self.change_dot[2]).on_action(|action| Message::ChangeDot(2, action))];
         let dot_apply = row![button("Apply").on_press(Message::ChangeApply)];

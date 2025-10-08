@@ -1,23 +1,24 @@
-use iced::{Fill, mouse, Point, Rectangle, Renderer, Theme};
+use iced::{mouse, Point, Rectangle, Renderer, Theme};
 use iced::event::Status;
 use iced::mouse::{Cursor, Interaction};
 use iced::widget::canvas;
 use iced::widget::canvas::{Event, Geometry};
+use crate::Message;
 use crate::app_settings::{AppSettings};
 use crate::model_instruments::{Model, Drawing};
 
 
 /// Canvas, that draws a model
 pub struct Framework<'a> {
-    state: &'a State,
-    model: &'a Model,
-    scale: f32,
-    app_settings: &'a AppSettings,
-    mode: &'static str
+    pub state: &'a State,
+    pub model: &'a Model,
+    pub scale: f32,
+    pub app_settings: &'a AppSettings,
+    pub mode: &'static str
 }
 
 impl Framework<'_> {
-    fn mouse_events(&self, state: &mut Drawing, mouse_event: mouse::Event, cursor_pos: Point) -> (Status, Option<Model>){
+    fn mouse_events(&self, state: &mut Drawing, mouse_event: mouse::Event, cursor_pos: Point) -> (Status, Option<Message>){
         let zoom = &self.app_settings.zoom;
         let message = match mouse_event {
             mouse::Event::ButtonPressed(mouse::Button::Left) => {
@@ -110,15 +111,36 @@ impl Framework<'_> {
             }
             _ => None,
         };
-
-        (Status::Captured, message)
+        
+        if let Some(smol_model) = message {
+            (Status::Captured, Some(Message::Def(smol_model)))
+        } else {
+            (Status::Ignored, None)
+        }
     }
 }
 
-impl canvas::Program<Model> for Framework<'_> {
+/*impl Framework<'_> {
+    pub fn new<'a> (state: &'a State,
+               model: &'a Model,
+               scale: f32,
+               app_settings: &'a AppSettings,
+               mode: &'static str
+    ) -> Framework<'a> {
+        Self {
+            state,
+            model,
+            scale,
+            app_settings,
+            mode
+        }
+    }
+}*/
+
+impl canvas::Program<Message> for Framework<'_> {
     type State = Drawing;
 
-    fn update(&self, state: &mut Self::State, event: Event, bounds: Rectangle, cursor: Cursor) -> (Status, Option<Model>) {
+    fn update(&self, state: &mut Self::State, event: Event, bounds: Rectangle, cursor: Cursor) -> (Status, Option<Message>) {
         if self.mode == state.as_str() {
         } else if self.mode == "Line" {
             match *state {
@@ -165,6 +187,7 @@ impl canvas::Program<Model> for Framework<'_> {
 
         vec![content, state.editing(&self.model.dots, renderer, bounds, cursor, self.scale, &self.app_settings.zoom)]
     }
+    
     fn mouse_interaction(&self, _state: &Self::State, bounds: Rectangle, cursor: Cursor) -> Interaction {
         if cursor.is_over(bounds) {
             Interaction::Crosshair
@@ -178,11 +201,11 @@ impl canvas::Program<Model> for Framework<'_> {
 /// [canvas::Cache], contains already drawn [Framework].
 #[derive(Default)]
 pub struct State {
-    cache: canvas::Cache,
+    cache: canvas::Cache
 }
 
 impl State {
-    pub fn view<'a>(&'a self, model: &'a Model, scale: f32, app_settings: &'a AppSettings, mode: &'static str) -> iced::Element<'a, Model> {
+    pub fn view<'a>(&'a self, model: &'a Model, scale: f32, app_settings: &'a AppSettings, mode: &'static str) -> iced::Element<'a, Message> {
         canvas(Framework {
             state: self,
             model,
@@ -190,13 +213,13 @@ impl State {
             app_settings,
             mode
         })
-            .width(Fill)
-            .height(Fill)
+            .width(iced::Fill)
+            .height(iced::Fill)
             .into()
     }
 
-    ///Deletes cache and draws from scratch.
-    pub fn request_redraw(&mut self) {
-        self.cache.clear();
+    ///Deletes cache and draws from zero.
+    pub fn redraw(&mut self) {
+        self.cache = canvas::Cache::new()
     }
 }

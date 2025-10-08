@@ -1,6 +1,7 @@
 use iced::{Center, Fill, Point, Vector};
-use iced::widget::{button, checkbox, column, text_input};
+use iced::widget::{button, checkbox, column, row, text, text_editor};
 use crate::Message;
+use crate::Message::SettingsEdit;
 use crate::grid::Grid;
 
 
@@ -42,8 +43,8 @@ impl Zoom {
 
 #[derive(Debug, Clone)]
 pub enum Change {
-    Shift(Vector),
-    Resize(f32),
+    Open,
+    ZoomWrite(usize, text_editor::Action),
     Circles(bool),
     Dots(bool),
     Lines(bool),
@@ -58,24 +59,39 @@ pub struct AppSettings {
     pub dots_show: bool,
     pub lines_show: bool,
     pub circles_show: bool,
-    grid_modes: [&'static str; 3]
+    grid_modes: [&'static str; 3], 
+    write_zoom: [text_editor::Content; 3]
 }
 
 impl AppSettings {
     pub fn update(&mut self, message: Change) {
         match message {
-            Change::Resize(extent) => {
-                if extent == 0.0 {
-                    self.zoom.scale = 0.0;
-                    self.zoom.shift = Vector::default()
-                } else {
-                    self.zoom.scale *= extent
+            Change::Open => {
+                self.write_zoom = [
+                    text_editor::Content::with_text(self.zoom.shift.x.to_string().as_str()),
+                    text_editor::Content::with_text(self.zoom.shift.y.to_string().as_str()),
+                    text_editor::Content::with_text(self.zoom.scale.to_string().as_str())
+                ]
+            }
+
+            Change::ZoomWrite(num, action) => {
+                self.write_zoom[num].perform(action);
+                if let Ok(new_value) = self.write_zoom[num].text().trim().parse::<f32>() {
+                    match num {
+                        0 => {
+                            self.zoom.shift.x = new_value
+                        }
+                        1 => {
+                            self.zoom.shift.y = new_value
+                        }
+                        2 => {
+                            self.zoom.scale = new_value
+                        }
+                        _ => {}
+                    }
                 }
             }
 
-            Change::Shift(add_shift) => {
-                self.zoom.shift = self.zoom.shift + add_shift * (1.0 / self.zoom.scale);
-            }
             Change::Circles(new) => {
                 self.circles_show = new
             }
@@ -92,12 +108,15 @@ impl AppSettings {
     }
     pub fn view(&self) -> iced::Element<'_, Message> {
         let go_back = button("Go back").on_press(Message::SettingsOpen(false));
-        let circles = checkbox("Circles", self.circles_show).on_toggle(|a| Message::SettingsEdit(Change::Circles(a)));
-        let dots = checkbox("Dots", self.dots_show).on_toggle(|a| Message::SettingsEdit(Change::Dots(a)));
-        let lines = checkbox("Lines", self.lines_show).on_toggle(|a| Message::SettingsEdit(Change::Lines(a)));
-        let grid_mode = iced::widget::PickList::new(self.grid_modes, Some(self.grid.get_display()), |a| Message::SettingsEdit(Change::GridMode(a)));
+        let circles = checkbox("Circles", self.circles_show).on_toggle(|a| SettingsEdit(Change::Circles(a)));
+        let dots = checkbox("Dots", self.dots_show).on_toggle(|a| SettingsEdit(Change::Dots(a)));
+        let lines = checkbox("Lines", self.lines_show).on_toggle(|a| SettingsEdit(Change::Lines(a)));
+        let grid_mode = iced::widget::PickList::new(self.grid_modes, Some(self.grid.get_display()), |a| SettingsEdit(Change::GridMode(a)));
+        let write_zoom_x = row![text("Shift x: "), text_editor(&self.write_zoom[0]).on_action(|action| SettingsEdit(Change::ZoomWrite(0, action)))];
+        let write_zoom_y = row![text("Shift y: "), text_editor(&self.write_zoom[1]).on_action(|action| SettingsEdit(Change::ZoomWrite(1, action)))];
+        let write_zoom_mul = row![text("Mul: "), text_editor(&self.write_zoom[2]).on_action(|action| SettingsEdit(Change::ZoomWrite(2, action)))];
 
-        column![go_back, circles, dots, lines, grid_mode].width(Fill).align_x(Center).into()
+        column![go_back, circles, dots, lines, grid_mode, write_zoom_mul, write_zoom_x, write_zoom_y].width(Fill).align_x(Center).into()
     }
 }
 
@@ -110,7 +129,8 @@ impl Default for AppSettings {
             dots_show: true,
             lines_show: true,
             circles_show: true,
-            grid_modes: ["Circles", "Squares", "None"]
+            grid_modes: ["Circles", "Squares", "None"],
+            write_zoom: [text_editor::Content::default(), text_editor::Content::default(), text_editor::Content::default()]
         }
     }
 }

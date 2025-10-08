@@ -85,6 +85,9 @@ impl Model {
 }
 
 impl Model {
+    pub fn import (&mut self) {
+        
+    }
     pub fn export (&self) -> String {
         let mut output = String::new();
         output += "p1\tp2\tr\n";
@@ -126,9 +129,9 @@ impl Default for Drawing {
 }
 
 impl Drawing {
-    pub fn editing(&self, dots: &Vec<(Point, f32)>, renderer: &Renderer, bounds: Rectangle, cursor: Cursor, scale: f32, zoom: &Zoom) -> Geometry<Renderer> {
+    pub fn editing(&self, /*frame: &mut Frame, */dots: &Vec<(Point, f32)>, renderer: &Renderer, bounds: Rectangle, cursor: Cursor, scale: f32, zoom: &Zoom) -> Geometry {
         let mut frame = canvas::Frame::new(renderer, bounds.size());
-
+        
         match *self {
             Self::LineDot { dot, num } => {
                 let cursor_pos = cursor.position_in(bounds).unwrap_or(dot);
@@ -156,7 +159,7 @@ impl Drawing {
             }
             _ => {}
         };
-
+        
         frame.into_geometry()
     }
 
