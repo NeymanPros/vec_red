@@ -48,6 +48,9 @@ pub enum Change {
     Circles(bool),
     Dots(bool),
     Lines(bool),
+    Bound(bool),
+    NodeDotShow(bool),
+    NodeLineShow(bool),
     GridMode(&'static str)
 }
 
@@ -59,6 +62,10 @@ pub struct AppSettings {
     pub dots_show: bool,
     pub lines_show: bool,
     pub circles_show: bool,
+    pub node_dot_show: bool,
+    pub node_line_show: bool,
+    pub bound: bool,
+    
     grid_modes: [&'static str; 3], 
     write_zoom: [text_editor::Content; 3]
 }
@@ -101,8 +108,17 @@ impl AppSettings {
             Change::Lines(new) => {
                 self.lines_show = new
             }
+            Change::NodeDotShow(new) => {
+                    self.node_dot_show = new;
+            }
+            Change::NodeLineShow(new) => {
+                    self.node_line_show = new;
+            }
             Change::GridMode(new) => {
                 self.grid.set_display(new)
+            }
+            Change::Bound(new) => {
+                self.bound = new
             }
         }
     }
@@ -111,12 +127,17 @@ impl AppSettings {
         let circles = checkbox("Circles", self.circles_show).on_toggle(|a| SettingsEdit(Change::Circles(a)));
         let dots = checkbox("Dots", self.dots_show).on_toggle(|a| SettingsEdit(Change::Dots(a)));
         let lines = checkbox("Lines", self.lines_show).on_toggle(|a| SettingsEdit(Change::Lines(a)));
+        let node_dot = checkbox("Node dots", self.node_dot_show).on_toggle(|a| SettingsEdit(Change::NodeDotShow(a)));
+        let node_line = checkbox("Node lines", self.node_line_show).on_toggle(|a| SettingsEdit(Change::NodeLineShow(a)));
+        let bound_grid = checkbox("Bound to grid", self.bound).on_toggle(|a| SettingsEdit(Change::Bound(a)));
+        
         let grid_mode = iced::widget::PickList::new(self.grid_modes, Some(self.grid.get_display()), |a| SettingsEdit(Change::GridMode(a)));
         let write_zoom_x = row![text("Shift x: "), text_editor(&self.write_zoom[0]).on_action(|action| SettingsEdit(Change::ZoomWrite(0, action)))];
         let write_zoom_y = row![text("Shift y: "), text_editor(&self.write_zoom[1]).on_action(|action| SettingsEdit(Change::ZoomWrite(1, action)))];
         let write_zoom_mul = row![text("Mul: "), text_editor(&self.write_zoom[2]).on_action(|action| SettingsEdit(Change::ZoomWrite(2, action)))];
 
-        column![go_back, circles, dots, lines, grid_mode, write_zoom_mul, write_zoom_x, write_zoom_y].width(Fill).align_x(Center).into()
+        column![go_back, circles, dots, lines, grid_mode, node_dot, node_line, bound_grid, 
+            write_zoom_mul, write_zoom_x, write_zoom_y].width(Fill).align_x(Center).into()
     }
 }
 
@@ -129,6 +150,9 @@ impl Default for AppSettings {
             dots_show: true,
             lines_show: true,
             circles_show: true,
+            node_dot_show: true,
+            node_line_show: true,
+            bound: false,
             grid_modes: ["Circles", "Squares", "None"],
             write_zoom: [text_editor::Content::default(), text_editor::Content::default(), text_editor::Content::default()]
         }

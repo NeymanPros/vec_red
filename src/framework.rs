@@ -35,7 +35,7 @@ impl Framework<'_> {
                     Drawing::Dot {} => {
                         let a = self.model.find_point(real_cursor, self.scale);
                         *state = Drawing::SelectDot { dot: real_cursor, num: a };
-                        Some(Model { dots: vec![(real_cursor, 0.0)], lines: vec![] })
+                        Some(Message::DefDot(real_cursor))
                     }
                     Drawing::Line {} => {
                         *state = Drawing::LineDot { dot: real_cursor, num: None };
@@ -48,7 +48,7 @@ impl Framework<'_> {
                             dot = self.model.dots[num.unwrap()].0
                         }
 
-                        Some(Model { dots: vec![(dot, 0.0), (real_cursor, 0.0)], lines: vec![(0, 1, -1)] })
+                        Some(Message::DefLine(vec![dot, real_cursor], (0, 1, -1)))
                     }
                     Drawing::Arc {} => {
                         *state = Drawing::ArcDot { dot: real_cursor, num: None };
@@ -71,23 +71,24 @@ impl Framework<'_> {
                         }
 
 
-                        Some(Model { dots: vec![(dot_one, 0.0), (dot_two, 0.0), (real_cursor, 0.0)], lines: vec![(0, 1, 2)] })
+                        Some(Message::DefLine(vec![dot_one, dot_two, real_cursor], (0, 1, 2)))
                     }
                     _ => {
                         *state = Drawing::None {};
-                        Some(Model { dots: vec![], lines: vec![] })
+                        Some(Message::DefUnselect)
                     }
                 }
             }
             mouse::Event::ButtonPressed(mouse::Button::Right) => {
-                let a = self.model.find_point(zoom.reverse(cursor_pos), self.scale);
+                let real_cursor = zoom.reverse(cursor_pos);
+                let a = self.model.find_point(real_cursor, self.scale);
                 if a >= self.model.dots.len() {
                     None
                 } else {
                     match *state {
                         Drawing::LineDot { dot, .. } => {
                             *state = Drawing::Line {};
-                            Some(Model { dots: vec![(dot, 0.0), (zoom.reverse(cursor_pos), 0.0)], lines: vec![(0, 1, -1)] })
+                            Some(Message::DefLine(vec![dot, real_cursor], (0, 1, -1)))
                         }
 
                         Drawing::ArcDot { dot, num } => {
@@ -99,43 +100,22 @@ impl Framework<'_> {
                         Drawing::ArcTwoDots { dot_one, dot_two, .. } => {
                             *state = Drawing::Arc {};
 
-                            Some(Model {dots: vec![(dot_one, 0.0), (dot_two, 0.0), self.model.dots[a]], lines: vec![(0, 1, 2)]})
+                            Some(Message::DefLine(vec![dot_one, dot_two, real_cursor], (0, 1, 2)))
                         }
 
                         _ => {
                             *state = Drawing::SelectDot { dot: self.model.dots[a].0, num: a };
-                            Some(Model { dots: vec![(zoom.reverse(cursor_pos), 0.0)], lines: vec![] })
+                            Some(Message::DefDot(real_cursor))
                         }
                     }
                 }
             }
             _ => None,
         };
-        
-        if let Some(smol_model) = message {
-            (Status::Captured, Some(Message::Def(smol_model)))
-        } else {
-            (Status::Ignored, None)
-        }
+
+        (Status::Captured, message)
     }
 }
-
-/*impl Framework<'_> {
-    pub fn new<'a> (state: &'a State,
-               model: &'a Model,
-               scale: f32,
-               app_settings: &'a AppSettings,
-               mode: &'static str
-    ) -> Framework<'a> {
-        Self {
-            state,
-            model,
-            scale,
-            app_settings,
-            mode
-        }
-    }
-}*/
 
 impl canvas::Program<Message> for Framework<'_> {
     type State = Drawing;
@@ -174,6 +154,12 @@ impl canvas::Program<Message> for Framework<'_> {
                 let Some(cursor_pos) = cursor.position_in(bounds) else {
                     return (Status::Ignored, None);
                 };
+                let cursor_pos = if self.app_settings.bound {
+                    self.app_settings.grid.bound(&cursor_pos)
+                }
+                else {
+                    cursor_pos
+                };
                 self.mouse_events(state, mouse_event, cursor_pos)
             }
             _ => (Status::Ignored, None),
@@ -205,19 +191,6 @@ pub struct State {
 }
 
 impl State {
-    pub fn view<'a>(&'a self, model: &'a Model, scale: f32, app_settings: &'a AppSettings, mode: &'static str) -> iced::Element<'a, Message> {
-        canvas(Framework {
-            state: self,
-            model,
-            scale,
-            app_settings,
-            mode
-        })
-            .width(iced::Fill)
-            .height(iced::Fill)
-            .into()
-    }
-
     ///Deletes cache and draws from zero.
     pub fn redraw(&mut self) {
         self.cache = canvas::Cache::new()

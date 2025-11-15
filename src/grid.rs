@@ -120,10 +120,15 @@ impl Grid {
 }
 
 impl Grid {
-    pub fn bound(&self, point: &mut Point) {
+    pub fn bound(&self, point: &Point) -> Point {
         if self.get_display() != "None" {
-            point.x = (point.x / self.info.distance).round() * point.x;
-            point.y = (point.y / self.info.distance).round() * point.y;
+            let mut new_point = Point::default();
+            new_point.x = (point.x / self.info.distance).round() * self.info.distance;
+            new_point.y = (point.y / self.info.distance).round() * self.info.distance;
+            new_point
+        }
+        else {
+            *point
         }
     }
 }

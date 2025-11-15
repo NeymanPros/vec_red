@@ -49,7 +49,7 @@ impl Model {
             start_angle: iced::Radians(0.0),
             end_angle: iced::Radians(360.0)
         };
-        p.arc(arc);//  line_to(zoom.apply(self.dots[i.1 as usize].0));
+        p.arc(arc);
     }
 }
 
@@ -88,7 +88,7 @@ impl Model {
     pub fn import (&mut self) {
         
     }
-    pub fn export (&self) -> String {
+    pub fn export (&self) {
         let mut output = String::new();
         output += "p1\tp2\tr\n";
         for point in &self.dots {
@@ -105,7 +105,7 @@ impl Model {
             output += (l1 + "\t" + l2.as_str() + "\t" + l3.as_str() + "\n").as_str();
         }
         
-        output
+        println!("{}", output);
     }
 }
 

@@ -64,7 +64,7 @@ impl Default for UndoManager {
     fn default() -> Self {
         Self {
             undo_stack: vec![],
-            max_len: 1
+            max_len: 25
         }
     }
 }
