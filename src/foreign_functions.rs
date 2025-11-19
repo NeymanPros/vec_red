@@ -43,13 +43,13 @@ pub fn f_create_prim(lib: &Library, prim: &(i32, i32, i32)) -> i32 {
 }
 
 #[allow(non_snake_case)]
-pub fn f_create_region(lib: &Library) -> i32 {
+pub fn f_create_region(lib: &Library, point: &Point) -> i32 {
     unsafe {
         let func: Symbol<unsafe fn(&f64, &f64, &f64, &bool, &u8,
                                    &String, &f64, &f64, &f64, &f64, &f64, &f64,
                                    &bool) -> i32> = lib.get(b"FCreateRegion").expect("No create region");
-        let xp= 500f64;
-        let yp = 500f64;
+        let xp= point.x as f64;
+        let yp = point.y as f64;
         let Rp = 20f64;
         let pTriW = true;
         let pPrMag = 3u8;

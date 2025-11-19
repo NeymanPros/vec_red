@@ -2,9 +2,10 @@ use iced::{keyboard, Point, Subscription, Vector};
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
 use iced::widget::text_editor;
+use libloading::Library;
 use crate::{Message, VecRed};
 use crate::app_settings::Change;
-use crate::excel_parse::{excel_dots, excel_lines};
+use crate::foreign_functions::*;
 
 impl VecRed {
     pub fn update(&mut self, message: Message) {
@@ -157,7 +158,7 @@ impl VecRed {
                 self.state.redraw()
             }
 
-            Message::Resize(extent) => {
+            Message::Scale(extent) => {
                 if extent == 0.0 {
                     self.app_settings.zoom.scale = 1.0;
                     self.app_settings.zoom.shift = Vector::default()
@@ -171,6 +172,24 @@ impl VecRed {
             Message::Shift(add_shift) => {
                 self.app_settings.zoom.shift = self.app_settings.zoom.shift + add_shift * (1.0 / self.app_settings.zoom.scale);
                 self.state.redraw()
+            }
+            
+            Message::SetZoom(start, end, force) => {
+                let scale = self.app_settings.zoom.scale;
+                let big_enough = ((end.x - start.x) * scale).abs() > 25.0 &&
+                    ((end.y - start.y) * scale).abs() > 25.0;
+                
+                if force || big_enough {
+                    let min_x = start.x.min(end.x);
+                    let max_x = start.x.max(end.x);
+                    let min_y = start.y.min(end.y);
+                    let max_y = start.y.max(end.y);
+
+                    self.app_settings.zoom.shift.x = min_x;
+                    self.app_settings.zoom.shift.y = min_y;
+                    self.app_settings.zoom.scale = 900.0/f32::max(max_x - min_x, max_y - min_y).abs();
+                    self.state.redraw()
+                }
             }
 
             Message::SettingsOpen(new_value) => {
@@ -188,6 +207,38 @@ impl VecRed {
             Message::SettingsEdit(action) => {
                 self.app_settings.update(action)
             }
+
+            Message::SendModel => {
+                unsafe { 
+                    self.lib = Some(Library::new("/home/alexe/Documents/DTLib/FLib.dll").expect("No lib found")); 
+                }
+                let lib = self.lib.as_ref().unwrap();
+                f_init_model(lib);
+                for i in &self.model.dots {
+                    let out = f_create_point(lib, i);
+                    println!("{out}")
+                }
+                for j in &self.model.lines {
+                    let out = f_create_prim(lib, j);
+                    println!("primo {out}")
+                }
+            }
+
+            Message::BuildFM(point) => {
+                if let lib = self.lib.as_ref().unwrap() {
+                    let out = f_create_region(lib, &point);
+                    println!("aaa is {out}");
+                }
+            }
+
+            Message::CreateTriangle => {
+                if let lib = self.lib.as_ref().unwrap() {
+                    let out = f_build_fm(lib);
+                    println!("Triangle is {}", out);
+                    (self.model.node_dots, self.model.node_lines) = get_nodes_full(lib);
+                    self.state.redraw()
+                }
+            }
         }
     }
 }
@@ -197,6 +248,7 @@ impl VecRed {
         let keyboard_events = keyboard::on_key_press(|a, b| {
             Self::shortcuts(a, b)
         });
+        //let mouse_events = iced::mouse::Event::CursorEntered;
         Subscription::batch(vec![keyboard_events])
     }
 
@@ -207,16 +259,16 @@ impl VecRed {
                     Some(Message::DeleteDot)
                 }
                 Key::Named(Named::ArrowLeft) => {
-                    Some(Message::Shift(Vector::new(100.0, 0.0)))
-                }
-                Key::Named(Named::ArrowRight) => {
                     Some(Message::Shift(Vector::new(-100.0, 0.0)))
                 }
+                Key::Named(Named::ArrowRight) => {
+                    Some(Message::Shift(Vector::new(100.0, 0.0)))
+                }
                 Key::Named(Named::ArrowUp) => {
-                    Some(Message::Shift(Vector::new(0.0, 100.0)))
+                    Some(Message::Shift(Vector::new(0.0, -100.0)))
                 }
                 Key::Named(Named::ArrowDown) => {
-                    Some(Message::Shift(Vector::new(0.0, -100.0)))
+                    Some(Message::Shift(Vector::new(0.0, 100.0)))
                 }
                 _ => { None }
             }
@@ -225,16 +277,16 @@ impl VecRed {
             keyboard::Modifiers::SHIFT => {
                 match key {
                     Key::Named(Named::ArrowLeft) => {
-                        Some(Message::Shift(Vector::new(10.0, 0.0)))
-                    }
-                    Key::Named(Named::ArrowRight) => {
                         Some(Message::Shift(Vector::new(-10.0, 0.0)))
                     }
+                    Key::Named(Named::ArrowRight) => {
+                        Some(Message::Shift(Vector::new(10.0, 0.0)))
+                    }
                     Key::Named(Named::ArrowUp) => {
-                        Some(Message::Shift(Vector::new(0.0, 10.0)))
+                        Some(Message::Shift(Vector::new(0.0, -10.0)))
                     }
                     Key::Named(Named::ArrowDown) => {
-                        Some(Message::Shift(Vector::new(0.0, -10.0)))
+                        Some(Message::Shift(Vector::new(0.0, 10.0)))
                     }
                     _ => { None }
                 }
@@ -245,10 +297,10 @@ impl VecRed {
                         Some(Message::Undo)
                     }
                     Key::Character("=") => {
-                        Some(Message::Resize(1.1))
+                        Some(Message::Scale(1.1))
                     }
                     Key::Character("-") => {
-                        Some(Message::Resize(0.9))
+                        Some(Message::Scale(0.9))
                     }
                     _ => { None }
                 }

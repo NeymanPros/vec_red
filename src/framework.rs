@@ -17,105 +17,6 @@ pub struct Framework<'a> {
     pub mode: &'static str
 }
 
-impl Framework<'_> {
-    fn mouse_events(&self, state: &mut Drawing, mouse_event: mouse::Event, cursor_pos: Point) -> (Status, Option<Message>){
-        let zoom = &self.app_settings.zoom;
-        let message = match mouse_event {
-            mouse::Event::ButtonPressed(mouse::Button::Left) => {
-                if state.as_str() != self.mode {
-                    *state = match self.mode {
-                        "Dot" => { Drawing::Dot {} }
-                        "Line" => { Drawing::Line {} }
-                        "Arc" => { Drawing::Arc }
-                        _ => Drawing::None {}
-                    };
-                }
-                let real_cursor = zoom.reverse(cursor_pos);
-                match *state {
-                    Drawing::Dot {} => {
-                        let a = self.model.find_point(real_cursor, self.scale);
-                        *state = Drawing::SelectDot { dot: real_cursor, num: a };
-                        Some(Message::DefDot(real_cursor))
-                    }
-                    Drawing::Line {} => {
-                        *state = Drawing::LineDot { dot: real_cursor, num: None };
-
-                        None
-                    }
-                    Drawing::LineDot { mut dot, num } => {
-                        *state = Drawing::Line {};
-                        if num.is_some() && num.unwrap() < self.model.dots.len() {
-                            dot = self.model.dots[num.unwrap()].0
-                        }
-
-                        Some(Message::DefLine(vec![dot, real_cursor], (0, 1, -1)))
-                    }
-                    Drawing::Arc {} => {
-                        *state = Drawing::ArcDot { dot: real_cursor, num: None };
-
-                        None
-                    }
-                    Drawing::ArcDot { dot, num } => {
-                        *state = Drawing::ArcTwoDots { dot_one: dot, num_one: num, dot_two: real_cursor, num_two: None };
-
-                        None
-                    }
-                    Drawing::ArcTwoDots { mut dot_one, mut dot_two, num_one, num_two } => {
-                        *state = Drawing::Arc {};
-
-                        if num_one.is_some() && num_one.unwrap() < self.model.dots.len() {
-                            dot_one = self.model.dots[num_one.unwrap()].0
-                        }
-                        if num_two.is_some() && num_two.unwrap() < self.model.dots.len() {
-                            dot_two = self.model.dots[num_two.unwrap()].0
-                        }
-
-
-                        Some(Message::DefLine(vec![dot_one, dot_two, real_cursor], (0, 1, 2)))
-                    }
-                    _ => {
-                        *state = Drawing::None {};
-                        Some(Message::DefUnselect)
-                    }
-                }
-            }
-            mouse::Event::ButtonPressed(mouse::Button::Right) => {
-                let real_cursor = zoom.reverse(cursor_pos);
-                let a = self.model.find_point(real_cursor, self.scale);
-                if a >= self.model.dots.len() {
-                    None
-                } else {
-                    match *state {
-                        Drawing::LineDot { dot, .. } => {
-                            *state = Drawing::Line {};
-                            Some(Message::DefLine(vec![dot, real_cursor], (0, 1, -1)))
-                        }
-
-                        Drawing::ArcDot { dot, num } => {
-                            *state = Drawing::ArcTwoDots { dot_one: dot, num_one: num, dot_two: self.model.dots[a].0, num_two: Some(a) };
-
-                            None
-                        }
-
-                        Drawing::ArcTwoDots { dot_one, dot_two, .. } => {
-                            *state = Drawing::Arc {};
-
-                            Some(Message::DefLine(vec![dot_one, dot_two, real_cursor], (0, 1, 2)))
-                        }
-
-                        _ => {
-                            *state = Drawing::SelectDot { dot: self.model.dots[a].0, num: a };
-                            Some(Message::DefDot(real_cursor))
-                        }
-                    }
-                }
-            }
-            _ => None,
-        };
-
-        (Status::Captured, message)
-    }
-}
 
 impl canvas::Program<Message> for Framework<'_> {
     type State = Drawing;
@@ -160,7 +61,7 @@ impl canvas::Program<Message> for Framework<'_> {
                 else {
                     cursor_pos
                 };
-                self.mouse_events(state, mouse_event, cursor_pos)
+                self.simple_mouse_events(state, mouse_event, cursor_pos)
             }
             _ => (Status::Ignored, None),
         }
@@ -183,6 +84,112 @@ impl canvas::Program<Message> for Framework<'_> {
     }
 }
 
+impl Framework<'_> {
+    fn simple_mouse_events(&self, state: &mut Drawing, mouse_event: mouse::Event, cursor_pos: Point) -> (Status, Option<Message>){
+        let real_cursor = self.app_settings.zoom.reverse(cursor_pos);
+        let message = match mouse_event {
+            mouse::Event::ButtonPressed(mouse::Button::Left) => {
+                if state.as_str() != self.mode {
+                    *state = match self.mode {
+                        "Dot" => { Drawing::Dot {} }
+                        "Line" => { Drawing::Line {} }
+                        "Arc" => { Drawing::Arc }
+                        _ => Drawing::None {}
+                    };
+                }
+                match *state {
+                    Drawing::Dot {} => {
+                        let a = self.model.find_point(real_cursor, self.scale);
+                        *state = Drawing::SelectDot { dot: real_cursor, num: a };
+                        Some(Message::DefDot(real_cursor))
+                    }
+                    Drawing::Line {} => {
+                        *state = Drawing::LineDot { dot: real_cursor, num: None };
+
+                        None
+                    }
+                    Drawing::LineDot { mut dot, num } => {
+                        *state = Drawing::Line {};
+                        if num.is_some() && num.unwrap() < self.model.dots.len() {
+                            dot = self.model.dots[num.unwrap()].0
+                        }
+
+                        Some(Message::DefLine(vec![dot, real_cursor], (0, 1, -1)))
+                    }
+                    Drawing::Arc {} => {
+                        *state = Drawing::ArcDot { dot: real_cursor, num: None };
+
+                        None
+                    }
+                    Drawing::ArcDot { dot, num } => {
+                        *state = Drawing::ArcTwoDots { dot_one: dot, num_one: num, dot_two: real_cursor, num_two: None };
+
+                        None
+                    }
+                    Drawing::ArcTwoDots { mut dot_one, mut dot_two, num_one, num_two } => {
+                        *state = Drawing::Arc {};
+
+                        if num_one.is_some() && num_one.unwrap() < self.model.dots.len() {
+                            dot_one = self.model.dots[num_one.unwrap()].0
+                        }
+                        if num_two.is_some() && num_two.unwrap() < self.model.dots.len() {
+                            dot_two = self.model.dots[num_two.unwrap()].0
+                        }
+                        
+                        Some(Message::DefLine(vec![dot_one, dot_two, real_cursor], (0, 1, 2)))
+                    }
+                    _ => {
+                        *state = Drawing::Scaling {starting_dot: cursor_pos};
+                        
+                        Some(Message::DefUnselect)
+                    }
+                }
+            }
+            mouse::Event::ButtonReleased(mouse::Button::Left) => {
+                if let Drawing::Scaling{starting_dot} = *state {
+                    *state = Drawing::None {};
+                    Some(Message::SetZoom(self.app_settings.zoom.reverse(starting_dot), real_cursor, false))
+                }
+                else {
+                    None
+                }
+            }
+            mouse::Event::ButtonPressed(mouse::Button::Right) => {
+                let a = self.model.find_point(real_cursor, self.scale);
+                if a >= self.model.dots.len() {
+                    None
+                } else {
+                    match *state {
+                        Drawing::LineDot { dot, .. } => {
+                            *state = Drawing::Line {};
+                            Some(Message::DefLine(vec![dot, real_cursor], (0, 1, -1)))
+                        }
+
+                        Drawing::ArcDot { dot, num } => {
+                            *state = Drawing::ArcTwoDots { dot_one: dot, num_one: num, dot_two: self.model.dots[a].0, num_two: Some(a) };
+
+                            None
+                        }
+
+                        Drawing::ArcTwoDots { dot_one, dot_two, .. } => {
+                            *state = Drawing::Arc {};
+
+                            Some(Message::DefLine(vec![dot_one, dot_two, real_cursor], (0, 1, 2)))
+                        }
+
+                        _ => {
+                            *state = Drawing::SelectDot { dot: self.model.dots[a].0, num: a };
+                            Some(Message::DefDot(real_cursor))
+                        }
+                    }
+                }
+            }
+            _ => None,
+        };
+
+        (Status::Captured, message)
+    }
+}
 
 /// [canvas::Cache], contains already drawn [Framework].
 #[derive(Default)]

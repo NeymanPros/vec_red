@@ -1,4 +1,4 @@
-mod excel_parse;
+mod foreign_functions;
 mod framework;
 mod app_settings;
 mod model_instruments;
@@ -6,7 +6,6 @@ mod undo_manager;
 mod grid;
 mod app;
 
-use std::mem::MaybeUninit;
 use crate::undo_manager::UndoManager;
 use crate::app_settings::{AppSettings, Change};
 use crate::framework::State;
@@ -37,7 +36,7 @@ struct VecRed {
     scale: f32,
     default_circle: f32,
 
-    lib: Box<MaybeUninit<Library>>
+    lib: Option<Library>
 }
 
 
@@ -58,10 +57,17 @@ enum Message {
     ChangeApply,
     EditScale(&'static str, f32),
     DeleteDot,
-    Resize(f32),
+    
+    Scale(f32),
     Shift(Vector),
+    SetZoom(Point, Point, bool),
+    
     SettingsOpen(bool),
-    SettingsEdit(Change)
+    SettingsEdit(Change),
+
+    SendModel,
+    BuildFM(Point),
+    CreateTriangle
 }
 
 impl Default for VecRed {
@@ -81,16 +87,19 @@ impl Default for VecRed {
             scale: 1.0,
             default_circle: 20.0,
 
-            lib: Box::new_uninit()
+            lib: None
         }
     }
 }
 
 
 fn main() -> iced::Result {
+    let mut settings = iced::window::Settings::default();
+    settings.min_size = Some(Size{width: 1100., height: 900.});
     iced::application("VecRed", VecRed::update, VecRed::view)
         .antialiasing(true)
-        .window_size(Size::new(1200.0, 1000.0))
+        .window_size(Size::new(1100.0, 900.0))
+        .window(settings)
         .subscription(VecRed::subscription)
         .run()
 }

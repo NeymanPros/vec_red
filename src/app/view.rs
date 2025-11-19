@@ -40,6 +40,7 @@ impl VecRed {
         let for_path = text_editor(&self.path_to_excel).on_action(Message::EditPath);
         let get_data = button("Hello").on_press(Message::GetData);
         let clear_frame = button("Clear all").on_press(Message::ClearAll);
+        
         let num = match self.chosen_dot {
             None => { String::from("") }
             _ => { self.chosen_dot.unwrap().2.to_string() }
@@ -52,9 +53,11 @@ impl VecRed {
         let change_circle = Slider::new(self.scale..=100.0, self.default_circle, |x| Message::EditScale("circle", x)).step(1.0);
         let undo_button = button("Undo").on_press(Message::Undo);
         let settings = button("Settings").on_press(Message::SettingsOpen(true));
-
+        
+        let foreign_functions = self.foreign_functions();
+        let shrink = self.shrink_to_fit();
         column!(mode, for_path, dot_info, get_data, text("Change scale"), change_scale, text("Change default circle"), change_circle,
-            clear_frame, undo_button, settings).spacing(5).align_x(Center)
+            clear_frame, undo_button, settings, foreign_functions, shrink).spacing(5).align_x(Center)
     }
 
     fn about_dot(&self, num: String) -> Column<'_, Message> {
@@ -67,7 +70,18 @@ impl VecRed {
         column![dot_number, dot_x, dot_y, dot_circle, dot_apply, dot_delete].align_x(Center)
     }
     
-    fn outer_functions(&self) -> Column<'_, Message> {
-        todo!()
+    fn foreign_functions(&self) -> Column<'_, Message> {
+        let send_model = button("send model").on_press(Message::SendModel);
+        let build_fm = button("Build FM").on_press(Message::BuildFM(iced::Point{x: 500f32, y: 500f32}));
+        let triangle = button("Build fm").on_press(Message::CreateTriangle);
+        
+        column![send_model, build_fm, triangle]
+    }
+    
+    fn shrink_to_fit(&self) -> button::Button<'_, Message> {
+        let (min, max) = self.model.find_min_max();
+        let button = button("Shrink").on_press(Message::SetZoom(min, max, true));
+        
+        button
     }
 }

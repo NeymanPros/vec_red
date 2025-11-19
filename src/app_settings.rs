@@ -7,7 +7,6 @@ use crate::grid::Grid;
 
 #[derive(Copy, Clone)]
 pub struct Zoom {
-    /// value * zoom + shift
     pub scale: f32,
     pub shift: Vector
 }
@@ -22,19 +21,20 @@ impl Default for Zoom {
 }
 
 impl Zoom {
-    /// Creates a new [Point] by multiplying the old one's coordinates on a given number, then shifting its position.
+    /// Creates a new [Point]. Adds shift and multiplies coordinates by scale.
     pub fn apply (&self, point: Point) -> Point {
         let mut result = point;
+        result = result - self.shift;
         result.x *= self.scale;
         result.y *= self.scale;
-        result + self.shift
+        result
     }
-    /// Draws back the effect of [Zoom::multi_and_shift].
+    /// Draws back the effect of [Zoom::apply].
     pub fn reverse(&self, point: Point) -> Point {
         let mut result = point;
-        result = result - self.shift;
         result.x /= self.scale;
         result.y /= self.scale;
+        result = result + self.shift;
         result
     }
 }
@@ -57,6 +57,8 @@ pub enum Change {
 
 pub struct AppSettings {
     pub shown: bool,
+    
+    /// (value - shift) * scale
     pub zoom: Zoom,
     pub grid: Grid,
     pub dots_show: bool,
@@ -124,6 +126,18 @@ impl AppSettings {
     }
     pub fn view(&self) -> iced::Element<'_, Message> {
         let go_back = button("Go back").on_press(Message::SettingsOpen(false));
+        let showing = self.showing_settings();
+        
+        let grid_mode = iced::widget::PickList::new(self.grid_modes, Some(self.grid.get_display()), |a| SettingsEdit(Change::GridMode(a)));
+        let write_zoom_x = row![text("Shift x: "), text_editor(&self.write_zoom[0]).on_action(|action| SettingsEdit(Change::ZoomWrite(0, action)))];
+        let write_zoom_y = row![text("Shift y: "), text_editor(&self.write_zoom[1]).on_action(|action| SettingsEdit(Change::ZoomWrite(1, action)))];
+        let write_zoom_mul = row![text("Mul: "), text_editor(&self.write_zoom[2]).on_action(|action| SettingsEdit(Change::ZoomWrite(2, action)))];
+
+        column![go_back, showing, grid_mode,
+            write_zoom_mul, write_zoom_x, write_zoom_y].width(Fill).align_x(Center).into()
+    }
+    
+    fn showing_settings(&self) -> iced::widget::Column<'_, Message> {
         let circles = checkbox("Circles", self.circles_show).on_toggle(|a| SettingsEdit(Change::Circles(a)));
         let dots = checkbox("Dots", self.dots_show).on_toggle(|a| SettingsEdit(Change::Dots(a)));
         let lines = checkbox("Lines", self.lines_show).on_toggle(|a| SettingsEdit(Change::Lines(a)));
@@ -131,13 +145,7 @@ impl AppSettings {
         let node_line = checkbox("Node lines", self.node_line_show).on_toggle(|a| SettingsEdit(Change::NodeLineShow(a)));
         let bound_grid = checkbox("Bound to grid", self.bound).on_toggle(|a| SettingsEdit(Change::Bound(a)));
         
-        let grid_mode = iced::widget::PickList::new(self.grid_modes, Some(self.grid.get_display()), |a| SettingsEdit(Change::GridMode(a)));
-        let write_zoom_x = row![text("Shift x: "), text_editor(&self.write_zoom[0]).on_action(|action| SettingsEdit(Change::ZoomWrite(0, action)))];
-        let write_zoom_y = row![text("Shift y: "), text_editor(&self.write_zoom[1]).on_action(|action| SettingsEdit(Change::ZoomWrite(1, action)))];
-        let write_zoom_mul = row![text("Mul: "), text_editor(&self.write_zoom[2]).on_action(|action| SettingsEdit(Change::ZoomWrite(2, action)))];
-
-        column![go_back, circles, dots, lines, grid_mode, node_dot, node_line, bound_grid, 
-            write_zoom_mul, write_zoom_x, write_zoom_y].width(Fill).align_x(Center).into()
+        column![circles, dots, lines, node_dot, node_line, bound_grid, ]
     }
 }
 
