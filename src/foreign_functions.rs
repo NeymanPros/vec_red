@@ -1,20 +1,5 @@
 use iced::Point;
-use rand::random_range;
 use libloading::{Library, Symbol};
-
-pub fn excel_dots () -> Vec<(Point, f32)> {
-    let mut dots: Vec<(Point, f32)> = Vec::with_capacity(1500);
-
-    for _i in 0..1500 {
-        dots.push((Point::new(random_range(10..=1000) as f32, random_range(10..=1000) as f32), 20.0));
-    }
-
-    dots
-}
-
-pub fn excel_lines() -> Vec<(i32, i32, i32)> {
-    vec![(0, 1, -1), (0, 2, -1), (1, 2, -1)]
-}
 
 pub fn f_init_model(lib: &Library) {
     unsafe {
@@ -133,4 +118,8 @@ pub fn get_nodes_full(lib: &Library) -> (Vec<Point>, Vec<(i32, i32)>) {
     }
 
     (node_dots, node_lines)
+}
+
+pub fn fopen_dat() {
+    todo!()
 }

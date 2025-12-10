@@ -6,6 +6,7 @@ use libloading::Library;
 use crate::{Message, VecRed};
 use crate::app_settings::Change;
 use crate::foreign_functions::*;
+use crate::model::load_model;
 
 impl VecRed {
     pub fn update(&mut self, message: Message) {
@@ -15,19 +16,28 @@ impl VecRed {
             }
 
             Message::EditPath(edited) => {
-                self.path_to_excel.perform(edited)
+                self.path_to_load.perform(edited)
             }
 
-            Message::GetData => {
-                //self.path_to_excel;
-                self.model.dots = excel_dots();
-                self.model.lines = excel_lines();
-                self.mode = "Move";
-                self.chosen_dot = None;
-                self.journal.clear();
-                self.state.redraw()
-        }
+            Message::ExportModel => {
+                if !load_model::export_model(self.path_to_load.text(), &self.model) {
+                    println!("AAA")
+                }
+            }
             
+            Message::ImportModel => {
+                if load_model::import_model(self.path_to_load.text(), &mut self.model) {
+                    self.mode = "Move";
+                    self.chosen_dot = None;
+                    self.journal.clear();
+                    self.state.redraw();
+                    println!("Done")
+                }
+                else {
+                    println!("AAA :(")
+                }
+            }
+
             Message::DefDot(dot) => {
                 let number = self.model.find_point(dot, self.scale);
                 if number == self.model.dots.len() {

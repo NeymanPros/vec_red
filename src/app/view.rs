@@ -1,7 +1,7 @@
 use iced::{Center, Fill};
 use iced::widget::{button, container, horizontal_space, row, stack, text, text_editor, Column, column, Slider};
 use crate::{Message, VecRed};
-use crate::framework::Framework;
+use crate::model::framework::Framework;
 
 impl VecRed {
     pub fn view(&self) -> iced::Element<'_, Message> {
@@ -37,8 +37,9 @@ impl VecRed {
 impl VecRed {
     fn side_panel(&self) -> Column<'_, Message> {
         let mode = iced::widget::PickList::new(self.modes, Some(self.mode), Message::ChangeMode);
-        let for_path = text_editor(&self.path_to_excel).on_action(Message::EditPath);
-        let get_data = button("Hello").on_press(Message::GetData);
+        let for_path = text_editor(&self.path_to_load).on_action(Message::EditPath);
+        let export = button("Export model").on_press(Message::ExportModel);
+        let import = button("Import model").on_press(Message::ImportModel);
         let clear_frame = button("Clear all").on_press(Message::ClearAll);
         
         let num = match self.chosen_dot {
@@ -56,7 +57,7 @@ impl VecRed {
         
         let foreign_functions = self.foreign_functions();
         let shrink = self.shrink_to_fit();
-        column!(mode, for_path, dot_info, get_data, text("Change scale"), change_scale, text("Change default circle"), change_circle,
+        column!(mode, for_path, dot_info, export, import, text("Change scale"), change_scale, text("Change default circle"), change_circle,
             clear_frame, undo_button, settings, foreign_functions, shrink).spacing(5).align_x(Center)
     }
 

@@ -5,7 +5,8 @@ use iced::widget::canvas;
 use iced::widget::canvas::{Event, Geometry};
 use crate::Message;
 use crate::app_settings::{AppSettings};
-use crate::model_instruments::{Model, Drawing};
+use crate::model::model_main::Model;
+use crate::model::drawing::Drawing;
 
 
 /// Canvas, that draws a model
@@ -190,6 +191,7 @@ impl Framework<'_> {
         (Status::Captured, message)
     }
 }
+
 
 /// [canvas::Cache], contains already drawn [Framework].
 #[derive(Default)]

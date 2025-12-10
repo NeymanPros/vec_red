@@ -1,5 +1,5 @@
 use iced::Point;
-use crate::model_instruments::Model;
+use crate::model::model_main::Model;
 
 ///Contains functions to undo actions
 pub struct UndoManager {
