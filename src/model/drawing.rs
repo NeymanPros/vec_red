@@ -3,7 +3,7 @@ use iced::mouse::Cursor;
 use iced::widget::canvas;
 use iced::widget::canvas::{Geometry, Path, Stroke};
 use crate::app_settings::Zoom;
-use crate::model::model_main::Model;
+use super::model_main::Model;
 
 /// Is used to work with [Model] elements
 #[derive(Debug, Clone, Copy)]

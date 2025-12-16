@@ -24,9 +24,9 @@ struct VecRed {
     model: Model,
 
     /// Point, radius, number in dots.
-    chosen_dot: Option<(Point, f32, usize)>,
+    chosen_point: Option<(Point, f32, usize)>,
     /// Stands for X, Y, radius.
-    change_dot: [text_editor::Content; 3],
+    change_point: [text_editor::Content; 3],
 
     modes: [&'static str; 4],
     mode: &'static str,
@@ -47,17 +47,17 @@ enum Message {
     EditPath(text_editor::Action),
     Undo,
     
-    DefDot(Point),
-    DefLine(Vec<Point>, (i32, i32, i32)),
+    DefPoint(Point),
+    DefPrim(Vec<Point>, (i32, i32, i32)),
     DefUnselect,
     /// Flush model into a file
     ExportModel,
     /// Load model from a file
     ImportModel,
-    ChangeDot(usize, text_editor::Action),
+    ChangePoint(usize, text_editor::Action),
     ChangeApply,
     EditScale(&'static str, f32),
-    DeleteDot,
+    DeletePoint,
     
     Scale(f32),
     Shift(Vector),
@@ -78,8 +78,8 @@ impl Default for VecRed {
             path_to_load: text_editor::Content::default(),
             modes: ["Move", "Dot", "Line", "Arc"],
             mode: "Move",
-            chosen_dot: None,
-            change_dot: [text_editor::Content::default(), text_editor::Content::default(), text_editor::Content::default()],
+            chosen_point: None,
+            change_point: [text_editor::Content::default(), text_editor::Content::default(), text_editor::Content::default()],
 
             state: State::default(),
             model: Model::default(),
@@ -101,6 +101,7 @@ fn main() -> iced::Result {
         .antialiasing(true)
         .window_size(Size::new(1100.0, 900.0))
         .window(settings)
+        .theme(|_| iced::Theme::Light)
         .subscription(VecRed::subscription)
         .run()
 }

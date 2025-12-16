@@ -11,36 +11,36 @@ impl UndoManager {
     pub fn clear(&mut self) {
         self.undo_stack.clear()
     }
-    pub fn deleted_dot(&mut self, dot: (Point, f32), num: usize) {
+    pub fn deleted_point(&mut self, dot: (Point, f32), num: usize) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            let len = model.dots.len();
-            model.dots.push(dot);
-            model.dots.swap(len, num);
-            model.replace_line(num, len)
+            let len = model.points.len();
+            model.points.push(dot);
+            model.points.swap(len, num);
+            model.replace_prim(num, len)
         });
         self.push(func);
     }
-    pub fn deleted_line (&mut self, line: (i32, i32, i32), placement: usize) {
+    pub fn deleted_prim(&mut self, line: (i32, i32, i32), placement: usize) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.lines.insert(placement, line);
+            model.prims.insert(placement, line);
         });
         self.push(func)
     }
-    pub fn pushed_dot (&mut self) {
+    pub fn pushed_point(&mut self) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.dots.pop();
+            model.points.pop();
         });
         self.push(func);
     }
-    pub fn pushed_line (&mut self) {
+    pub fn pushed_prim(&mut self) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.lines.pop();
+            model.prims.pop();
         });
         self.push(func);
     }
-    pub fn changed_dot (&mut self, old: (Point, f32), num: usize) {
+    pub fn changed_point(&mut self, old: (Point, f32), num: usize) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.dots[num] = old;
+            model.points[num] = old;
         });
         self.undo_stack.push(func);
     }

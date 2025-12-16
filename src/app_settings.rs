@@ -46,10 +46,10 @@ pub enum Change {
     Open,
     ZoomWrite(usize, text_editor::Action),
     Circles(bool),
-    Dots(bool),
+    Point(bool),
     Lines(bool),
     Bound(bool),
-    NodeDotShow(bool),
+    NodePointShow(bool),
     NodeLineShow(bool),
     GridMode(&'static str)
 }
@@ -61,10 +61,10 @@ pub struct AppSettings {
     /// (value - shift) * scale
     pub zoom: Zoom,
     pub grid: Grid,
-    pub dots_show: bool,
-    pub lines_show: bool,
+    pub points_show: bool,
+    pub prims_show: bool,
     pub circles_show: bool,
-    pub node_dot_show: bool,
+    pub node_point_show: bool,
     pub node_line_show: bool,
     pub bound: bool,
     
@@ -104,14 +104,14 @@ impl AppSettings {
             Change::Circles(new) => {
                 self.circles_show = new
             }
-            Change::Dots(new) => {
-                self.dots_show = new
+            Change::Point(new) => {
+                self.points_show = new
             }
             Change::Lines(new) => {
-                self.lines_show = new
+                self.prims_show = new
             }
-            Change::NodeDotShow(new) => {
-                    self.node_dot_show = new;
+            Change::NodePointShow(new) => {
+                    self.node_point_show = new;
             }
             Change::NodeLineShow(new) => {
                     self.node_line_show = new;
@@ -139,13 +139,13 @@ impl AppSettings {
     
     fn showing_settings(&self) -> iced::widget::Column<'_, Message> {
         let circles = checkbox("Circles", self.circles_show).on_toggle(|a| SettingsEdit(Change::Circles(a)));
-        let dots = checkbox("Dots", self.dots_show).on_toggle(|a| SettingsEdit(Change::Dots(a)));
-        let lines = checkbox("Lines", self.lines_show).on_toggle(|a| SettingsEdit(Change::Lines(a)));
-        let node_dot = checkbox("Node dots", self.node_dot_show).on_toggle(|a| SettingsEdit(Change::NodeDotShow(a)));
+        let points = checkbox("Points", self.points_show).on_toggle(|a| SettingsEdit(Change::Point(a)));
+        let prims = checkbox("Prims", self.prims_show).on_toggle(|a| SettingsEdit(Change::Lines(a)));
+        let node_point = checkbox("Node points", self.node_point_show).on_toggle(|a| SettingsEdit(Change::NodePointShow(a)));
         let node_line = checkbox("Node lines", self.node_line_show).on_toggle(|a| SettingsEdit(Change::NodeLineShow(a)));
         let bound_grid = checkbox("Bound to grid", self.bound).on_toggle(|a| SettingsEdit(Change::Bound(a)));
         
-        column![circles, dots, lines, node_dot, node_line, bound_grid, ]
+        column![circles, points, prims, node_point, node_line, bound_grid, ]
     }
 }
 
@@ -155,10 +155,10 @@ impl Default for AppSettings {
             shown: false,
             zoom: Zoom::default(),
             grid: Grid::default(),
-            dots_show: true,
-            lines_show: true,
+            points_show: true,
+            prims_show: true,
             circles_show: true,
-            node_dot_show: true,
+            node_point_show: true,
             node_line_show: true,
             bound: false,
             grid_modes: ["Circles", "Squares", "None"],

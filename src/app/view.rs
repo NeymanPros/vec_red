@@ -35,6 +35,7 @@ impl VecRed {
 
 
 impl VecRed {
+    /// Summary for right pannel
     fn side_panel(&self) -> Column<'_, Message> {
         let mode = iced::widget::PickList::new(self.modes, Some(self.mode), Message::ChangeMode);
         let for_path = text_editor(&self.path_to_load).on_action(Message::EditPath);
@@ -42,13 +43,13 @@ impl VecRed {
         let import = button("Import model").on_press(Message::ImportModel);
         let clear_frame = button("Clear all").on_press(Message::ClearAll);
         
-        let num = match self.chosen_dot {
+        let num = match self.chosen_point {
             None => { String::from("") }
-            _ => { self.chosen_dot.unwrap().2.to_string() }
+            _ => { self.chosen_point.unwrap().2.to_string() }
         };
-        let mut dot_info: Column<Message> = Column::new();
+        let mut point_info: Column<Message> = Column::new();
         if num != String::from("") {
-            dot_info = self.about_dot(num);
+            point_info = self.about_point(num);
         }
         let change_scale: Slider<f32, Message> = Slider::new(0.5..=20.0, self.scale, |x| Message::EditScale("scale", x)).step(0.25);
         let change_circle = Slider::new(self.scale..=100.0, self.default_circle, |x| Message::EditScale("circle", x)).step(1.0);
@@ -57,28 +58,31 @@ impl VecRed {
         
         let foreign_functions = self.foreign_functions();
         let shrink = self.shrink_to_fit();
-        column!(mode, for_path, dot_info, export, import, text("Change scale"), change_scale, text("Change default circle"), change_circle,
+        column!(mode, for_path, point_info, export, import, text("Change scale"), change_scale, text("Change default circle"), change_circle,
             clear_frame, undo_button, settings, foreign_functions, shrink).spacing(5).align_x(Center)
     }
 
-    fn about_dot(&self, num: String) -> Column<'_, Message> {
-        let dot_number = text("Number of dot: ".to_owned() + num.as_str());
-        let dot_x = row![text("X: "), text_editor(&self.change_dot[0]).on_action(|action| Message::ChangeDot(0, action))];
-        let dot_y = row![text("Y: "), text_editor(&self.change_dot[1]).on_action(|action| Message::ChangeDot(1, action))];
-        let dot_circle = row![text("R: "), text_editor(&self.change_dot[2]).on_action(|action| Message::ChangeDot(2, action))];
-        let dot_apply = row![button("Apply").on_press(Message::ChangeApply)];
-        let dot_delete = row![button("Delete").on_press(Message::DeleteDot)];
-        column![dot_number, dot_x, dot_y, dot_circle, dot_apply, dot_delete].align_x(Center)
+    /// Part of panel about selected [Point].
+    fn about_point(&self, num: String) -> Column<'_, Message> {
+        let point_number = text("Number of point: ".to_owned() + num.as_str());
+        let point_x = row![text("X: "), text_editor(&self.change_point[0]).on_action(|action| Message::ChangePoint(0, action))];
+        let point_y = row![text("Y: "), text_editor(&self.change_point[1]).on_action(|action| Message::ChangePoint(1, action))];
+        let point_circle = row![text("R: "), text_editor(&self.change_point[2]).on_action(|action| Message::ChangePoint(2, action))];
+        let point_apply = row![button("Apply").on_press(Message::ChangeApply)];
+        let point_delete = row![button("Delete").on_press(Message::DeletePoint)];
+        column![point_number, point_x, point_y, point_circle, point_apply, point_delete].align_x(Center)
     }
     
+    /// Part of panel calling foreign functions
     fn foreign_functions(&self) -> Column<'_, Message> {
         let send_model = button("send model").on_press(Message::SendModel);
         let build_fm = button("Build FM").on_press(Message::BuildFM(iced::Point{x: 500f32, y: 500f32}));
-        let triangle = button("Build fm").on_press(Message::CreateTriangle);
+        let triangle = button("Create triangle").on_press(Message::CreateTriangle);
         
         column![send_model, build_fm, triangle]
     }
     
+    /// Changes [app_settings::Zoom] so that every Point from [Self::model] fits inside
     fn shrink_to_fit(&self) -> button::Button<'_, Message> {
         let (min, max) = self.model.find_min_max();
         let button = button("Shrink").on_press(Message::SetZoom(min, max, true));

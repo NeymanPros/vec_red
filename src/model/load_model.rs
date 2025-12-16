@@ -1,58 +1,69 @@
 use crate::model::model_main::Model;
 use iced::Point;
 use csv::{WriterBuilder, ReaderBuilder};
+use libloading::Library;
+use crate::foreign_functions::fopen_dat;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct Csv {
-    p1: f32,
-    p2: f32,
-    p3: f32,
+    p1: Option<f32>,
+    p2: Option<f32>,
+    p3: Option<f32>,
     l1: Option<i32>,
     l2: Option<i32>,
     l3: Option<i32>,
-    n_d1: f32,
-    n_d2: f32,
+    n_p1: Option<f32>,
+    n_p2: Option<f32>,
     n_l1: Option<i32>,
     n_l2: Option<i32>
 }
 
 impl Csv {
-    fn new(dots: [f32; 3], lines: Option<[i32; 3]>, node_dots: [f32; 2], node_lines: Option<[i32; 2]>) -> Self {
-        let real_lines = match lines {
-            None => [None, None, None],
+    fn new(dots: &Option<&(Point, f32)>, lines: &Option<&(i32, i32, i32)>, node_dots: &Option<&Point>, node_lines: &Option<&(i32, i32)>) -> Self {
+        let (p1, p2, p3) = match dots {
+            None => (None, None, None),
             _ => {
-                let l = lines.as_ref().unwrap();
-                [Some(l[0]), Some(l[1]), Some(l[2])]
+                let p = dots.as_ref().unwrap();
+                (Some(p.0.x), Some(p.0.y), Some(p.1))
             }
         };
-        
-        let real_node_lines = match node_lines {
-            None => [None, None],
+        let (l1, l2, l3) = match lines {
+            None => (None, None, None),
+            _ => {
+                let l = lines.as_ref().unwrap();
+                (Some(l.0), Some(l.1), Some(l.2))
+            }
+        };
+        let (n_p1, n_p2) = match node_dots {
+            None => (None, None),
+            _ => {
+                let p = dots.as_ref().unwrap();
+                (Some(p.0.x), Some(p.0.y))
+            }
+        };
+        let (n_l1, n_l2) = match node_lines {
+            None => (None, None),
             _ => {
                 let l = node_lines.as_ref().unwrap();
-                [Some(l[0]), Some(l[1])]
+                (Some(l.0), Some(l.1))
             }
         };
         
         Self {
-            p1: dots[0],
-            p2: dots[1],
-            p3: dots[2],
-            l1: real_lines[0],
-            l2: real_lines[1],
-            l3: real_lines[2],
-            n_d1: node_dots[0],
-            n_d2: node_dots[1],
-            n_l1: real_node_lines[0],
-            n_l2: real_node_lines[1]
+            p1, p2, p3,
+            l1, l2, l3,
+            n_p1, n_p2,
+            n_l1, n_l2
         }
     }
 }
 
-pub fn import_model(path: String, model: &mut Model) -> bool {
-    if path.len() >= 4 {
-        match path.trim().get((path.len() - 4)..=(path.len() - 2)) {
+pub fn import_model(lib: &Library, path: String, model: &mut Model) -> bool {
+    let path = path.trim().to_string();
+    if path.len() >= 3 {
+        match path.get((path.len() - 3)..=(path.len() - 1)) {
             Some("csv") => import_csv_model(path, model),
+            Some("mke") => import_mke_model(lib, path, model),
             _ => false
         }
     }
@@ -62,7 +73,7 @@ pub fn import_model(path: String, model: &mut Model) -> bool {
 }
 
 fn import_csv_model (path: String, model: &mut Model) -> bool {
-    if let Ok(mut reader) = ReaderBuilder::new().delimiter(b'\t').from_path(path.trim()) {
+    if let Ok(mut reader) = ReaderBuilder::new().delimiter(b'\t').from_path(path) {
         let records = reader.deserialize::<Csv>();
         let mut dots: Vec<(Point, f32)> = Vec::new();
         let mut lines: Vec<(i32, i32, i32)> = Vec::new();
@@ -71,34 +82,29 @@ fn import_csv_model (path: String, model: &mut Model) -> bool {
 
         for i in records {
             if let Ok(rec) = i.as_ref() {
-                let p = [&rec.p1, &rec.p2, &rec.p3];
-                if p.iter().all(|a| !a.is_nan()) {
-                    dots.push((Point::new(*p[0], *p[1]), *p[2]))
+                 if let (Some(p1), Some(p2), Some(p3)) = (rec.p1, rec.p2, rec.p3) {
+                    dots.push((Point::new(p1, p2), p3))
                 }
 
-                let l = [&rec.l1, &rec.l2, &rec.l3];
-                if l.iter().all(|a| a.is_some()) {
-                    lines.push((l[0].unwrap(), l[1].unwrap(), l[2].unwrap()))
+                if let (Some(l1), Some(l2), Some(l3)) = (rec.l1, rec.l2, rec.l3) {
+                    lines.push((l1, l2, l3))
                 }
 
-                let np = [&rec.n_d1, &rec.n_d2];
-                if np.iter().all(|a| !a.is_nan()) {
-                    node_dots.push(Point::new(*np[0], *np[1]))
+                if let (Some(np1), Some(np2)) = (rec.n_p1, rec.n_p2) {
+                    node_dots.push(Point::new(np1, np2));
                 }
 
-                let nl = [&rec.n_l1, &rec.n_l2];
-                if nl.iter().all(|a| a.is_some()) {
-                    node_lines.push((l[0].unwrap(), l[1].unwrap()))
+                if let(Some(n_l1), Some(n_l2)) = (rec.n_l1, rec.n_l2) {
+                    node_lines.push((n_l1, n_l2))
                 }
                 
             }
 
         }
-
-
-        model.dots = dots;
-        model.lines = lines;
-        model.node_dots = node_dots;
+        
+        model.points = dots;
+        model.prims = lines;
+        model.node_points = node_dots;
         model.node_lines = node_lines;
         return true
     }
@@ -106,9 +112,19 @@ fn import_csv_model (path: String, model: &mut Model) -> bool {
     false
 }
 
+fn import_mke_model(lib: &Library, path: String, model: &mut Model) -> bool {
+    if !fopen_dat(lib, &path) {
+        return false
+    }
+    
+    
+    true
+}
+
 pub fn export_model(path: String, model: &Model) -> bool {
+    let path = path.trim().to_string();
     if path.len() >= 4 {
-        match path.get((path.len() - 4)..=(path.len() - 2)) {
+        match path.get((path.len() - 3)..=(path.len() - 1)) {
             Some("csv") => export_csv_model(path, model),
             _ => false
         }
@@ -119,16 +135,15 @@ pub fn export_model(path: String, model: &Model) -> bool {
 }
 
 fn export_csv_model(path: String, model: &Model) -> bool {
-    if let Ok(mut writer) = WriterBuilder::new().delimiter(b'\t').from_path(path.trim()) {
-        let records = model.export();
-        let max_len = usize::max(records.0.len(), records.1.len());
+    if let Ok(mut writer) = WriterBuilder::new().delimiter(b'\t').from_path(path) {
+        let max_len = usize::max(model.node_points.len(), model.points.len());
 
         for i in 0..max_len {
             let rec = Csv::new(
-                records.0.get(i).copied().unwrap_or([f32::NAN; 3]),
-                records.1.get(i).copied(),
-                records.2.get(i).copied().unwrap_or([f32::NAN; 2]),
-                records.3.get(i).copied()
+                &model.points.get(i),
+                &model.prims.get(i),
+                &model.node_points.get(i),
+                &model.node_lines.get(i)
             );
 
             writer.serialize(rec).expect("No write");

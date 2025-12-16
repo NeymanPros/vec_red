@@ -1,5 +1,6 @@
 use iced::Point;
 use libloading::{Library, Symbol};
+use crate::model::model_main::Model;
 
 pub fn f_init_model(lib: &Library) {
     unsafe {
@@ -120,6 +121,40 @@ pub fn get_nodes_full(lib: &Library) -> (Vec<Point>, Vec<(i32, i32)>) {
     (node_dots, node_lines)
 }
 
-pub fn fopen_dat() {
-    todo!()
+pub fn get_full_model(lib: &Library) -> Model {
+    let (node_points, node_lines) = get_nodes_full(lib);
+    //get_points_prims(lib);
+    
+    Model {points: vec![], prims: vec![], node_points, node_lines}
+}
+
+pub fn fopen_dat(lib: &Library, path: &String) -> bool {
+    let mut path_vec: Vec<&str> = path.split('/').collect();
+    if path_vec.len() <= 1 {
+        path_vec  = path.split('\\').collect();
+    }
+    if path_vec.len() <= 1 {
+        return false
+    }
+    let file_name = path_vec.pop().unwrap().to_string();
+    let file_dir: String = path_vec.into_iter().map(|a| {
+        a.to_owned() + "/"
+    }).collect();
+    println!("Here");
+    
+    let mut arr_name: [u8; 256] = [0; 256];
+    for (i, byte) in file_name.bytes().enumerate() {
+        arr_name[i] = byte;
+    }
+    arr_name[file_name.len()] = b'\0';
+
+    let mut arr_dir: [u8; 256] = [0; 256];
+    for (i, byte) in file_dir.bytes().enumerate() {
+        arr_dir[i] = byte;
+    }
+    arr_dir[file_dir.len()] = b'\0';
+    unsafe {
+        let func: Symbol<unsafe fn(&[u8; 256], &[u8; 256]) -> bool> = lib.get(b"FOpenDat").expect("No FOpenDat");
+        func(&arr_dir, &arr_name)
+    }
 }
