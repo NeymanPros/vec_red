@@ -3,20 +3,19 @@ use iced::mouse::Cursor;
 use iced::widget::canvas;
 use iced::widget::canvas::{Geometry, Path, Stroke};
 use crate::app_settings::Zoom;
-use super::model_main::Model;
 
 /// Is used to work with [Model] elements
 #[derive(Debug, Clone, Copy)]
 pub enum Drawing {
     None {},
     Line {},
-    LineDot { dot: Point, num: Option<usize> },
+    LinePoint { point: Point, num: Option<usize> },
     Arc,
-    ArcDot { dot: Point, num: Option<usize>},
-    ArcTwoDots { dot_one: Point, num_one: Option<usize>, dot_two: Point, num_two: Option<usize> },
-    Dot {},
-    SelectDot { dot: Point, num: usize },
-    Scaling {starting_dot: Point}
+    ArcPoint { point: Point, num: Option<usize>},
+    ArcTwoPoints { point_one: Point, num_one: Option<usize>, point_two: Point, num_two: Option<usize> },
+    Point {},
+    SelectPoint { point: Point, num: usize },
+    Scaling { starting_point: Point}
 }
 
 impl Default for Drawing {
@@ -26,42 +25,42 @@ impl Default for Drawing {
 }
 
 impl Drawing {
-    pub fn editing(&self, dots: &Vec<(Point, f32)>, renderer: &Renderer, bounds: Rectangle, cursor: Cursor, scale: f32, zoom: &Zoom) -> Geometry {
+    pub fn editing(&self, points: &Vec<(Point, f32)>, renderer: &Renderer, bounds: Rectangle, cursor: Cursor, scale: f32, zoom: &Zoom) -> Geometry {
         let mut frame = canvas::Frame::new(renderer, bounds.size());
 
         match *self {
-            Self::LineDot { dot, num } => {
-                let cursor_pos = cursor.position_in(bounds).unwrap_or(dot);
-                Self::default_point(&mut frame, zoom, scale, dots, dot, num);
-                if num.is_none() || num.unwrap() >= dots.len() {
-                    frame.stroke(&Path::line(zoom.apply(dot), cursor_pos),
+            Self::LinePoint { point, num } => {
+                let cursor_pos = cursor.position_in(bounds).unwrap_or(point);
+                Self::default_point(&mut frame, zoom, scale, points, point, num);
+                if num.is_none() || num.unwrap() >= points.len() {
+                    frame.stroke(&Path::line(zoom.apply(point), cursor_pos),
                                  Stroke::default().with_width(2.0 * scale).with_color(Color::from_rgb8(255, 0, 0)));
                 }
                 else {
-                    frame.stroke(&Path::line(zoom.apply(dots[num.unwrap()].0), cursor_pos),
+                    frame.stroke(&Path::line(zoom.apply(points[num.unwrap()].0), cursor_pos),
                                  Stroke::default().with_width(scale).with_color(Color::from_rgb8(255, 0, 0)));
                 }
             }
-            Self::SelectDot { dot, num } => {
-                if num < dots.len() {
-                    Self::default_point(&mut frame, zoom, scale, dots, dot, Some(num));
+            Self::SelectPoint { point, num } => {
+                if num < points.len() {
+                    Self::default_point(&mut frame, zoom, scale, points, point, Some(num));
                 }
             }
-            Self::ArcDot {dot, num} => {
-                Self::default_point(&mut frame, zoom, scale, dots, dot, num)
+            Self::ArcPoint { point, num} => {
+                Self::default_point(&mut frame, zoom, scale, points, point, num)
             }
-            Self::ArcTwoDots {dot_one, num_one, dot_two, num_two} => {
-                Self::default_point(&mut frame, zoom, scale, dots, dot_one, num_one);
-                Self::default_point(&mut frame, zoom, scale, dots, dot_two, num_two)
+            Self::ArcTwoPoints { point_one, num_one, point_two, num_two} => {
+                Self::default_point(&mut frame, zoom, scale, points, point_one, num_one);
+                Self::default_point(&mut frame, zoom, scale, points, point_two, num_two)
             }
-            Self::Scaling {starting_dot} => {
-                let cursor_pos = cursor.position_in(bounds).unwrap_or(starting_dot);
+            Self::Scaling { starting_point } => {
+                let cursor_pos = cursor.position_in(bounds).unwrap_or(starting_point);
                 let path = Path::new(|builder| {
-                    builder.move_to(starting_dot);
-                    builder.line_to(Point{x: starting_dot.x, y: cursor_pos.y});
+                    builder.move_to(starting_point);
+                    builder.line_to(Point{x: starting_point.x, y: cursor_pos.y});
                     builder.line_to(cursor_pos);
-                    builder.line_to(Point{x: cursor_pos.x, y: starting_dot.y});
-                    builder.line_to(starting_dot);
+                    builder.line_to(Point{x: cursor_pos.x, y: starting_point.y});
+                    builder.line_to(starting_point);
                 });
                 frame.stroke(&path, Stroke::default().with_color(Color::from_rgb8(0, 32, 192)))
             }
@@ -71,27 +70,27 @@ impl Drawing {
         frame.into_geometry()
     }
 
-    fn default_point(frame: &mut canvas::Frame, zoom: &Zoom, scale: f32, dots: &Vec<(Point, f32)>, dot: Point, num: Option<usize>) {
-        let real_dot = match num {
+    fn default_point(frame: &mut canvas::Frame, zoom: &Zoom, scale: f32, points: &Vec<(Point, f32)>, point: Point, num: Option<usize>) {
+        let real_point = match num {
             Some(index) => {
-                if index < dots.len() {
-                    dots[index].0
+                if index < points.len() {
+                    points[index].0
                 } else {
-                    dot
+                    point
                 }
             },
-            None => dot,
+            None => point,
         };
-        frame.fill(&Path::circle(zoom.apply(real_dot), scale * 2.0), Color::from_rgb8(255, 0, 0));
+        frame.fill(&Path::circle(zoom.apply(real_point), scale * 2.0), Color::from_rgb8(255, 0, 0));
     }
 }
 
 impl Drawing {
     pub fn as_str (&self) -> &'static str {
         match *self {
-            Self::Dot {} => { "Dot" }
-            Self::Line {} | Self::LineDot { .. } => { "Line" }
-            Self::Arc {} | Self::ArcDot { .. } | Self::ArcTwoDots { .. } => { "Arc" }
+            Self::Point {} => { "Point" }
+            Self::Line {} | Self::LinePoint { .. } => { "Line" }
+            Self::Arc {} | Self::ArcPoint { .. } | Self::ArcTwoPoints { .. } => { "Arc" }
             _ => "Move"
         }
     }

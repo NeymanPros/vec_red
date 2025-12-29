@@ -2,7 +2,9 @@ use iced::{Color, Point};
 use iced::widget::canvas;
 use iced::widget::canvas::{Path, Stroke};
 use iced::widget::canvas::path::Arc;
-use crate::app_settings::{AppSettings, Zoom};
+use libloading::Library;
+use crate::app_settings::{AppSettings, NodeMode, Zoom};
+use crate::foreign_functions::{get_bm_only};
 
 /// Tools to draw [Framework].
 #[derive(Clone, Debug, Default)]
@@ -10,16 +12,16 @@ pub struct Model {
     pub points: Vec<(Point, f32)>,
     pub prims: Vec<(i32, i32, i32)>,
     pub node_points: Vec<Point>,
-    pub node_lines: Vec<(i32, i32)>
+    pub node_lines: Vec<(i32, i32, i32)>
 }
 
 impl Model {
-    pub fn draw_model(&self, frame: &mut canvas::Frame, scale: f32, app_settings: &AppSettings) {
+    pub fn draw_model(&self, frame: &mut canvas::Frame, scale: f32, app_settings: &AppSettings, lib: &Option<Library>) {
         if app_settings.points_show || app_settings.circles_show {
             self.points.iter().for_each(|point| {
                 if app_settings.points_show {
-                    let dot = Path::circle(app_settings.zoom.apply(point.0), scale * 2.0);
-                    frame.fill(&dot, Color::BLACK);
+                    let point_draw = Path::circle(app_settings.zoom.apply(point.0), scale * 2.0);
+                    frame.fill(&point_draw, Color::BLACK);
                 }
                 if app_settings.circles_show {
                     let dot = Path::circle(app_settings.zoom.apply(point.0), point.1 * app_settings.zoom.scale);
@@ -41,20 +43,12 @@ impl Model {
             frame.stroke(&lines, Stroke::default().with_color(Color::BLACK).with_width(scale));
         }
         if app_settings.node_point_show {
-            for node in &self.node_points {
-                let point = Path::circle(node.clone(), scale);
+            for &node in &self.node_points {
+                let point = Path::circle(app_settings.zoom.apply(node), scale * 3.0); 
                 frame.fill(&point, Color::from_rgb8(128, 128, 128));
             }
         }
-        if app_settings.node_line_show {
-        let lines = Path::new(|p| {
-                for (start, end) in &self.node_lines {
-                    p.move_to(app_settings.zoom.apply(self.node_points[*start as usize]));
-                    p.line_to(app_settings.zoom.apply(self.node_points[*end as usize]));
-                }
-            });
-            frame.stroke(&lines, Stroke::default().with_color(Color::from_rgb8(128, 128, 128)).with_width(scale / 2.0))
-        }
+        self.draw_nodes(app_settings, frame, scale, lib);
     }
 
     fn approx_arc (&self, p: &mut canvas::path::Builder, i: &(i32, i32, i32), zoom: &Zoom) {
@@ -66,13 +60,49 @@ impl Model {
         };
         p.arc(arc);
     }
+
+    fn draw_nodes (&self, app_settings: &AppSettings, frame: &mut canvas::Frame, scale: f32, lib: &Option<Library>) {
+        match app_settings.node_mode {
+            NodeMode::PureLines {} => {
+                for &(p1, p2, p3) in &self.node_lines {
+                    let lines = Path::new(|path| {
+                        path.move_to(app_settings.zoom.apply(self.node_points[p1 as usize]));
+                        path.line_to(app_settings.zoom.apply(self.node_points[p2 as usize]));
+                        path.line_to(app_settings.zoom.apply(self.node_points[p3 as usize]));
+                        path.line_to(app_settings.zoom.apply(self.node_points[p1 as usize]));
+                    });
+                    frame.stroke(&lines, Stroke::default().with_color(Color::from_rgb8(128, 128, 128)).with_width(scale / 2.0))
+                }
+            }
+
+            NodeMode::Green { max } => {
+                if let Some(real_lib) = lib {
+                    for (num, &(p1, p2, p3)) in self.node_lines.iter().enumerate() {
+                        let lines = Path::new(|path| {
+                            path.move_to(app_settings.zoom.apply(self.node_points[p1 as usize]));
+                            path.line_to(app_settings.zoom.apply(self.node_points[p2 as usize]));
+                            path.line_to(app_settings.zoom.apply(self.node_points[p3 as usize]));
+                            path.line_to(app_settings.zoom.apply(self.node_points[p1 as usize]));
+                        });
+                        let current_green = get_bm_only(real_lib, num as i32);
+                        frame.fill(&lines, Color::from_rgb(0.0, current_green / max, 0.0));
+                    }
+                }
+                else {
+                    println!("lib is None")
+                }
+            }
+
+            _ => {}
+        }
+    }
 }
 
 impl Model {
-    pub fn find_point(&self, point: Point, scale: f32) -> usize {
+    pub fn find_point(&self, point: Point, scale: f32, zoom_scale: f32) -> usize {
         self.points
             .iter()
-            .position(|x| { x.0.distance(point) < scale * 2.0 })
+            .position(|x| { x.0.distance(point) < scale / zoom_scale * 2.0 })
             .unwrap_or(self.points.len())
     }
 

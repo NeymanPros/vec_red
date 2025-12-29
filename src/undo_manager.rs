@@ -11,10 +11,10 @@ impl UndoManager {
     pub fn clear(&mut self) {
         self.undo_stack.clear()
     }
-    pub fn deleted_point(&mut self, dot: (Point, f32), num: usize) {
+    pub fn deleted_point(&mut self, point: (Point, f32), num: usize) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
             let len = model.points.len();
-            model.points.push(dot);
+            model.points.push(point);
             model.points.swap(len, num);
             model.replace_prim(num, len)
         });

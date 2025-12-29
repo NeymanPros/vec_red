@@ -28,7 +28,7 @@ struct VecRed {
     /// Stands for X, Y, radius.
     change_point: [text_editor::Content; 3],
 
-    modes: [&'static str; 4],
+    modes: [&'static str; 5],
     mode: &'static str,
 
     app_settings: AppSettings,
@@ -53,7 +53,7 @@ enum Message {
     /// Flush model into a file
     ExportModel,
     /// Load model from a file
-    ImportModel,
+    OpenModel,
     ChangePoint(usize, text_editor::Action),
     ChangeApply,
     EditScale(&'static str, f32),
@@ -67,7 +67,7 @@ enum Message {
     SettingsEdit(Change),
 
     SendModel,
-    BuildFM(Point),
+    CreateRegion(Point),
     CreateTriangle
 }
 
@@ -76,7 +76,7 @@ impl Default for VecRed {
         Self {
             journal: UndoManager::default(),
             path_to_load: text_editor::Content::default(),
-            modes: ["Move", "Dot", "Line", "Arc"],
+            modes: ["Move", "Point", "Line", "Arc", "Region"],
             mode: "Move",
             chosen_point: None,
             change_point: [text_editor::Content::default(), text_editor::Content::default(), text_editor::Content::default()],

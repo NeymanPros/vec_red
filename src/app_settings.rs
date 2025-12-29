@@ -1,5 +1,5 @@
 use iced::{Center, Fill, Point, Vector};
-use iced::widget::{button, checkbox, column, row, text, text_editor};
+use iced::widget::{button, checkbox, column, pick_list, row, text, text_editor};
 use crate::Message;
 use crate::Message::SettingsEdit;
 use crate::grid::Grid;
@@ -39,6 +39,25 @@ impl Zoom {
     }
 }
 
+pub enum NodeMode {
+    None {},
+    PureLines {},
+    Green { max: f32 } // Triangles
+}
+
+impl NodeMode {
+    fn as_str(&self) -> &str {
+        match self {
+            Self::None {} => "None",
+            Self::PureLines {} => "Pure lines",
+            Self::Green { .. } => "Green"
+        }
+    }
+    
+    fn options(&self) -> Vec<&str> {
+        vec!["None", "Pure lines", "Green"]
+    }
+}
 
 
 #[derive(Debug, Clone)]
@@ -50,7 +69,7 @@ pub enum Change {
     Lines(bool),
     Bound(bool),
     NodePointShow(bool),
-    NodeLineShow(bool),
+    NodeLineMode(String),
     GridMode(&'static str)
 }
 
@@ -58,14 +77,14 @@ pub enum Change {
 pub struct AppSettings {
     pub shown: bool,
     
-    /// (value - shift) * scale
+    /// (value - shift) / scale
     pub zoom: Zoom,
     pub grid: Grid,
     pub points_show: bool,
     pub prims_show: bool,
     pub circles_show: bool,
     pub node_point_show: bool,
-    pub node_line_show: bool,
+    pub node_mode: NodeMode,
     pub bound: bool,
     
     grid_modes: [&'static str; 3], 
@@ -113,8 +132,12 @@ impl AppSettings {
             Change::NodePointShow(new) => {
                     self.node_point_show = new;
             }
-            Change::NodeLineShow(new) => {
-                    self.node_line_show = new;
+            Change::NodeLineMode(new) => {
+                    self.node_mode = match new.as_str() {
+                        "Pure lines" => NodeMode::PureLines {},
+                        "Green" => NodeMode::Green { max: 2.2 },
+                        _ => NodeMode::None {}
+                    }
             }
             Change::GridMode(new) => {
                 self.grid.set_display(new)
@@ -142,7 +165,9 @@ impl AppSettings {
         let points = checkbox("Points", self.points_show).on_toggle(|a| SettingsEdit(Change::Point(a)));
         let prims = checkbox("Prims", self.prims_show).on_toggle(|a| SettingsEdit(Change::Lines(a)));
         let node_point = checkbox("Node points", self.node_point_show).on_toggle(|a| SettingsEdit(Change::NodePointShow(a)));
-        let node_line = checkbox("Node lines", self.node_line_show).on_toggle(|a| SettingsEdit(Change::NodeLineShow(a)));
+        
+        let node_line = pick_list(self.node_mode.options(), Some(self.node_mode.as_str()), |a| SettingsEdit(Change::NodeLineMode(a.to_string())));
+        
         let bound_grid = checkbox("Bound to grid", self.bound).on_toggle(|a| SettingsEdit(Change::Bound(a)));
         
         column![circles, points, prims, node_point, node_line, bound_grid, ]
@@ -159,7 +184,7 @@ impl Default for AppSettings {
             prims_show: true,
             circles_show: true,
             node_point_show: true,
-            node_line_show: true,
+            node_mode: NodeMode::None {},
             bound: false,
             grid_modes: ["Circles", "Squares", "None"],
             write_zoom: [text_editor::Content::default(), text_editor::Content::default(), text_editor::Content::default()]

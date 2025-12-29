@@ -20,43 +20,51 @@ impl VecRed {
             }
 
             Message::ExportModel => {
-                if !load_model::export_model(self.path_to_load.text(), &self.model) {
-                    println!("AAA")
+                if !load_model::export_model(&self.lib, self.path_to_load.text(), &self.model) {
+                    println!("Not done!")
                 }
             }
             
-            Message::ImportModel => {
-                if let Some(lib) = &self.lib {
-                    if load_model::import_model(lib, self.path_to_load.text(), &mut self.model) {
-                        self.mode = "Move";
-                        self.chosen_point = None;
-                        self.journal.clear();
-                        self.state.redraw();
-                        println!("Done")
-                    } else {
-                        println!("AAA :(")
-                    }
+            Message::OpenModel => {
+                if load_model::open_model(&self.lib, self.path_to_load.text(), &mut self.model) {
+                    let (min, max) = self.model.find_min_max();
+                    self.update(Message::SetZoom(min, max, true));
+
+                    self.mode = "Move";
+                    self.chosen_point = None;
+                    self.journal.clear();
+                    self.state.redraw();
+
+                    println!("Done")
+                } else {
+                    println!("Not done :(")
                 }
             }
 
             Message::DefPoint(point) => {
-                let number = self.model.find_point(point, self.scale);
-                if number == self.model.points.len() {
-                    self.journal.pushed_point();
-                    self.model.points.push((point, self.default_circle));
-                    self.state.redraw();
+                let number = self.model.find_point(point, self.scale, self.app_settings.zoom.scale);
+                if self.mode == "Region" && number == self.model.points.len() {
+                    self.update(Message::CreateRegion(point))
                 }
-                self.chosen_point = Some((self.model.points[number].0, self.model.points[number].1, number));
-                self.change_point = [
-                    text_editor::Content::with_text(self.chosen_point.as_ref().unwrap().0.x.to_string().as_str()),
-                    text_editor::Content::with_text(self.chosen_point.as_ref().unwrap().0.y.to_string().as_str()),
-                    text_editor::Content::with_text(self.chosen_point.as_ref().unwrap().1.to_string().as_str())
-                ]
+                else {
+                    if number == self.model.points.len() {
+                        self.journal.pushed_point();
+                        self.model.points.push((point, self.default_circle));
+                        self.state.redraw();
+                    }
+                    self.chosen_point = Some((self.model.points[number].0, self.model.points[number].1, number));
+                    self.change_point = [
+                        text_editor::Content::with_text(self.chosen_point.as_ref().unwrap().0.x.to_string().as_str()),
+                        text_editor::Content::with_text(self.chosen_point.as_ref().unwrap().0.y.to_string().as_str()),
+                        text_editor::Content::with_text(self.chosen_point.as_ref().unwrap().1.to_string().as_str())
+                    ]
+                }
             }
             
             Message::DefPrim(points, prim) => {
+                let zoom_scale = self.app_settings.zoom.scale.clone();
                 let add_point = |vec_red: &mut VecRed, point: Point| {
-                    let number = vec_red.model.find_point(point, vec_red.scale);
+                    let number = vec_red.model.find_point(point, vec_red.scale, zoom_scale);
                     if number == vec_red.model.points.len() {
                         vec_red.journal.pushed_point();
                         vec_red.model.points.push((point, vec_red.default_circle));
@@ -164,6 +172,8 @@ impl VecRed {
             Message::ClearAll => {
                 self.model.points.clear();
                 self.model.prims.clear();
+                self.model.node_points.clear();
+                self.model.node_lines.clear();
                 self.journal.clear();
                 self.chosen_point = None;
                 self.state.redraw()
@@ -203,9 +213,9 @@ impl VecRed {
                 }
             }
 
-            Message::SettingsOpen(new_value) => {
-                self.app_settings.shown = new_value;
-                if new_value == false {
+            Message::SettingsOpen(start_showing) => {
+                self.app_settings.shown = start_showing;
+                if !start_showing {
                     self.mode = "Move";
                     self.state.redraw();
                     self.app_settings.grid.redraw()
@@ -226,27 +236,26 @@ impl VecRed {
                 let lib = self.lib.as_ref().unwrap();
                 f_init_model(lib);
                 for i in &self.model.points {
-                    let out = f_create_point(lib, i);
-                    println!("{out}")
+                    f_create_point(lib, i);
                 }
                 for j in &self.model.prims {
-                    let out = f_create_prim(lib, j);
-                    println!("primo {out}")
+                    f_create_prim(lib, j);
                 }
             }
 
-            Message::BuildFM(point) => {
-                if let lib = self.lib.as_ref().unwrap() {
+            Message::CreateRegion(point) => {
+                if let Some(lib) = self.lib.as_ref() {
                     let out = f_create_region(lib, &point);
-                    println!("aaa is {out}");
+                    println!("Region is {out}");
                 }
             }
 
             Message::CreateTriangle => {
-                if let lib = self.lib.as_ref().unwrap() {
+                if let Some(lib) = self.lib.as_ref() {
                     let out = f_build_fm(lib);
                     println!("Triangle is {}", out);
                     (self.model.node_points, self.model.node_lines) = get_nodes_full(lib);
+                    println!("{:?}", self.model.node_points.get(1));
                     self.state.redraw()
                 }
             }

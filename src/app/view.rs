@@ -15,7 +15,8 @@ impl VecRed {
                     model: &self.model,
                     scale: self.scale,
                     app_settings: &self.app_settings,
-                    mode: &self.mode
+                    mode: &self.mode,
+                    lib: &self.lib
                 })
                     .width(Fill)
                     .height(Fill)
@@ -35,12 +36,12 @@ impl VecRed {
 
 
 impl VecRed {
-    /// Summary for right pannel
+    /// Summary for the right panel
     fn side_panel(&self) -> Column<'_, Message> {
         let mode = iced::widget::PickList::new(self.modes, Some(self.mode), Message::ChangeMode);
         let for_path = text_editor(&self.path_to_load).on_action(Message::EditPath);
-        let export = button("Export model").on_press(Message::ExportModel);
-        let import = button("Import model").on_press(Message::ImportModel);
+        let export_model = button("Export model").on_press(Message::ExportModel);
+        let open_model = button("Open model").on_press(Message::OpenModel);
         let clear_frame = button("Clear all").on_press(Message::ClearAll);
         
         let num = match self.chosen_point {
@@ -58,11 +59,11 @@ impl VecRed {
         
         let foreign_functions = self.foreign_functions();
         let shrink = self.shrink_to_fit();
-        column!(mode, for_path, point_info, export, import, text("Change scale"), change_scale, text("Change default circle"), change_circle,
+        column!(mode, for_path, point_info, export_model, open_model, text("Change scale"), change_scale, text("Change default circle"), change_circle,
             clear_frame, undo_button, settings, foreign_functions, shrink).spacing(5).align_x(Center)
     }
 
-    /// Part of panel about selected [Point].
+    /// Part of the panel about selected [Point].
     fn about_point(&self, num: String) -> Column<'_, Message> {
         let point_number = text("Number of point: ".to_owned() + num.as_str());
         let point_x = row![text("X: "), text_editor(&self.change_point[0]).on_action(|action| Message::ChangePoint(0, action))];
@@ -73,13 +74,12 @@ impl VecRed {
         column![point_number, point_x, point_y, point_circle, point_apply, point_delete].align_x(Center)
     }
     
-    /// Part of panel calling foreign functions
+    /// Part of the panel calling foreign functions
     fn foreign_functions(&self) -> Column<'_, Message> {
-        let send_model = button("send model").on_press(Message::SendModel);
-        let build_fm = button("Build FM").on_press(Message::BuildFM(iced::Point{x: 500f32, y: 500f32}));
+        let send_model = button("Send model").on_press(Message::SendModel);
         let triangle = button("Create triangle").on_press(Message::CreateTriangle);
         
-        column![send_model, build_fm, triangle]
+        column![send_model, triangle]
     }
     
     /// Changes [app_settings::Zoom] so that every Point from [Self::model] fits inside
