@@ -1,5 +1,7 @@
 **Vector editor** (*unfinished*)
+
 ---
+
 2-dimensional *Computer-Aided Design*. 
 
 Already implemented instruments for:
@@ -7,7 +9,9 @@ Already implemented instruments for:
 <li>Saving and reading files/</li>
 <li>Creating regions and splitting model into smaller objects (using math kernel)</li>
 <li>Representing information got from calculations</li>
+
 ---
+
 **Crates**
 
 <li>iced (0.13.1)</li>
@@ -15,6 +19,7 @@ Already implemented instruments for:
 <li>libloading</li>
 
 ---
+
 **Components**
 
 <li>*app*. Main event loop, structure of graphical interface and message proceed.</li>
