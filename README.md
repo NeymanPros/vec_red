@@ -15,7 +15,7 @@ Already implemented instruments for:
 **Crates**
 
 <li>iced (0.13.1)</li>
-<li>csv</li>
+<li>csv + serde</li>
 <li>libloading</li>
 
 ---
