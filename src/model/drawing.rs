@@ -2,7 +2,7 @@ use iced::{Color, Point, Rectangle, Renderer};
 use iced::mouse::Cursor;
 use iced::widget::canvas;
 use iced::widget::canvas::{Geometry, Path, Stroke};
-use crate::app_settings::Zoom;
+use crate::app_settings::zoom::Zoom;
 
 /// Is used to work with [Model] elements
 #[derive(Debug, Clone, Copy)]

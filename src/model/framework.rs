@@ -5,10 +5,9 @@ use iced::widget::canvas;
 use iced::widget::canvas::{Event, Geometry};
 use libloading::Library;
 use crate::Message;
-use crate::app_settings::AppSettings;
+use crate::app_settings::app_settings::AppSettings;
 use super::model_main::Model;
 use super::drawing::Drawing;
-
 
 /// Canvas, that draws a model
 pub struct Framework<'a> {

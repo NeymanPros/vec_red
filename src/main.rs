@@ -1,12 +1,11 @@
 mod model;
 mod app;
 mod foreign_functions;
-mod app_settings;
 mod undo_manager;
-mod grid;
+mod app_settings;
 
 use crate::undo_manager::UndoManager;
-use crate::app_settings::{AppSettings, Change};
+use app_settings::app_settings::{AppSettings, Change};
 use model::framework::State;
 use crate::model::model_main::Model;
 

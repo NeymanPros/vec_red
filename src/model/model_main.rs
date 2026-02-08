@@ -3,7 +3,8 @@ use iced::widget::canvas;
 use iced::widget::canvas::{Path, Stroke};
 use iced::widget::canvas::path::Arc;
 use libloading::Library;
-use crate::app_settings::{AppSettings, NodeMode, Zoom};
+use crate::app_settings::app_settings::{AppSettings, NodeMode};
+use crate::app_settings::zoom::Zoom;
 use crate::foreign_functions::{get_bm_only};
 
 /// Tools to draw [Framework].
@@ -17,19 +18,8 @@ pub struct Model {
 
 impl Model {
     pub fn draw_model(&self, frame: &mut canvas::Frame, scale: f32, app_settings: &AppSettings, lib: &Option<Library>) {
-        if app_settings.points_show || app_settings.circles_show {
-            self.points.iter().for_each(|point| {
-                if app_settings.points_show {
-                    let point_draw = Path::circle(app_settings.zoom.apply(point.0), scale * 2.0);
-                    frame.fill(&point_draw, Color::BLACK);
-                }
-                if app_settings.circles_show {
-                    let dot = Path::circle(app_settings.zoom.apply(point.0), point.1 * app_settings.zoom.scale);
-                    frame.stroke(&dot, Stroke::default().with_color(Color::from_rgb8(0, 0, 255)).with_width(2.0))
-                }
-            });
-        }
         if app_settings.prims_show {
+            let prim_color = app_settings.get_color("Prims");
             let lines = Path::new(|p| {
                 for i in &self.prims {
                     if i.2 == -1 {
@@ -40,12 +30,29 @@ impl Model {
                     }
                 }
             });
-            frame.stroke(&lines, Stroke::default().with_color(Color::BLACK).with_width(scale));
+            frame.stroke(&lines, Stroke::default().with_color(prim_color).with_width(scale));
         }
-        if app_settings.node_point_show {
+        
+        if app_settings.points_show || app_settings.circles_show {
+            let point_color = app_settings.get_color("Points");
+            let circle_color = app_settings.get_color("Circles");
+            self.points.iter().for_each(|point| {
+                if app_settings.points_show {
+                    let point_draw = Path::circle(app_settings.zoom.apply(point.0), scale * 2.0);
+                    frame.fill(&point_draw, point_color);
+                }
+                if app_settings.circles_show {
+                    let dot = Path::circle(app_settings.zoom.apply(point.0), point.1 * app_settings.zoom.scale);
+                    frame.stroke(&dot, Stroke::default().with_color(circle_color).with_width(2.0))
+                }
+            });
+        }
+        
+        if app_settings.node_points_show {
+            let node_point_color = app_settings.get_color("Node points");
             for &node in &self.node_points {
                 let point = Path::circle(app_settings.zoom.apply(node), scale * 3.0); 
-                frame.fill(&point, Color::from_rgb8(128, 128, 128));
+                frame.fill(&point, node_point_color);
             }
         }
         self.draw_nodes(app_settings, frame, scale, lib);
@@ -64,6 +71,7 @@ impl Model {
     fn draw_nodes (&self, app_settings: &AppSettings, frame: &mut canvas::Frame, scale: f32, lib: &Option<Library>) {
         match app_settings.node_mode {
             NodeMode::PureLines {} => {
+                let node_line_color = app_settings.get_color("Node lines");
                 for &(p1, p2, p3) in &self.node_lines {
                     let lines = Path::new(|path| {
                         path.move_to(app_settings.zoom.apply(self.node_points[p1 as usize]));
@@ -71,7 +79,7 @@ impl Model {
                         path.line_to(app_settings.zoom.apply(self.node_points[p3 as usize]));
                         path.line_to(app_settings.zoom.apply(self.node_points[p1 as usize]));
                     });
-                    frame.stroke(&lines, Stroke::default().with_color(Color::from_rgb8(128, 128, 128)).with_width(scale / 2.0))
+                    frame.stroke(&lines, Stroke::default().with_color(node_line_color).with_width(scale / 2.0))
                 }
             }
 

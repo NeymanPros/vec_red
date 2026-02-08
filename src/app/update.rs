@@ -4,7 +4,7 @@ use iced::keyboard::key::Named;
 use iced::widget::text_editor;
 use libloading::Library;
 use crate::{Message, VecRed};
-use crate::app_settings::Change;
+use crate::app_settings::app_settings::Change;
 use crate::foreign_functions::*;
 use crate::model::load_model;
 
