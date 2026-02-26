@@ -1,13 +1,12 @@
 mod model;
 mod app;
 mod foreign_functions;
-mod undo_manager;
-mod app_settings;
+mod app_config;
 
-use crate::undo_manager::UndoManager;
-use app_settings::app_settings::{AppSettings, Change};
+use app::undo_manager::UndoManager;
+use app_config::app_config::{AppConfig, Change};
 use model::framework::State;
-use crate::model::model_main::Model;
+use crate::model::Model;
 
 use iced::{Point, Size, Vector};
 use iced::widget::text_editor;
@@ -15,12 +14,12 @@ use iced::widget::text_editor;
 use libloading::Library;
 
 /// Main event loop.
-struct VecRed {
+struct VecRed<'a> {
     path_to_load: text_editor::Content,
     journal: UndoManager,
 
     state: State,
-    model: Model,
+    model: Model<'a>,
 
     /// Point, radius, number in dots.
     chosen_point: Option<(Point, f32, usize)>,
@@ -30,13 +29,12 @@ struct VecRed {
     modes: [&'static str; 5],
     mode: &'static str,
 
-    app_settings: AppSettings,
+    app_config: AppConfig,
     scale: f32,
     default_circle: f32,
 
     lib: Option<Library>
 }
-
 
 /// Messages produced by [VecRed]
 #[derive(Debug, Clone)]
@@ -49,28 +47,29 @@ enum Message {
     DefPoint(Point),
     DefPrim(Vec<Point>, (i32, i32, i32)),
     DefUnselect,
-    /// Flush model into a file
+    /// Flush model into a file.
     ExportModel,
-    /// Load model from a file
+    /// Load model from a file.
     OpenModel,
     ChangePoint(usize, text_editor::Action),
     ChangeApply,
     EditScale(&'static str, f32),
     DeletePoint,
     
-    Scale(f32),
-    Shift(Vector),
+    WindowResized(Size),
+    ZoomScale(f32),
+    ZoomShift(Vector),
     SetZoom(Point, Point, bool),
     
-    SettingsOpen(bool),
-    SettingsEdit(Change),
+    ConfigOpen(bool),
+    ConfigEdit(Change),
 
-    SendModel,
+    OpenMathCore,
     CreateRegion(Point),
     CreateTriangle
 }
 
-impl Default for VecRed {
+impl Default for VecRed<'_> {
     fn default() -> Self {
         Self {
             journal: UndoManager::default(),
@@ -83,7 +82,7 @@ impl Default for VecRed {
             state: State::default(),
             model: Model::default(),
 
-            app_settings: AppSettings::default(),
+            app_config: AppConfig::default(),
             scale: 1.0,
             default_circle: 20.0,
 
@@ -95,7 +94,7 @@ impl Default for VecRed {
 
 fn main() -> iced::Result {
     let mut settings = iced::window::Settings::default();
-    settings.min_size = Some(Size{width: 1100., height: 900.});
+    settings.min_size = Some(Size{width: 700., height: 500.});
     iced::application("VecRed", VecRed::update, VecRed::view)
         .antialiasing(true)
         .window_size(Size::new(1100.0, 900.0))

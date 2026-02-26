@@ -1,5 +1,5 @@
 use iced::Point;
-use crate::model::model_main::Model;
+use crate::model::Model;
 
 ///Contains functions to undo actions
 pub struct UndoManager {
@@ -13,34 +13,34 @@ impl UndoManager {
     }
     pub fn deleted_point(&mut self, point: (Point, f32), num: usize) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            let len = model.points.len();
-            model.points.push(point);
-            model.points.swap(len, num);
-            model.replace_prim(num, len)
+            let len = model.points_len();
+            model.points_push(point.0, point.1);
+            model.points_swap(len, num);
+            model.replace_prim(num as i32, len as i32)
         });
         self.push(func);
     }
-    pub fn deleted_prim(&mut self, line: (i32, i32, i32), placement: usize) {
+    pub fn deleted_prim(&mut self, placement: usize, line: [i32; 3]) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.prims.insert(placement, line);
+            model.prims_insert(placement, line);
         });
         self.push(func)
     }
     pub fn pushed_point(&mut self) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.points.pop();
+            model.points_pop();
         });
         self.push(func);
     }
     pub fn pushed_prim(&mut self) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.prims.pop();
+            model.prims_pop();
         });
         self.push(func);
     }
     pub fn changed_point(&mut self, old: (Point, f32), num: usize) {
         let func: Box<dyn FnOnce(&mut Model) + Send> = Box::new(move |model: &mut Model| {
-            model.points[num] = old;
+            model.point_set(num, old);
         });
         self.undo_stack.push(func);
     }

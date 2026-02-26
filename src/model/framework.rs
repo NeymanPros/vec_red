@@ -5,19 +5,17 @@ use iced::widget::canvas;
 use iced::widget::canvas::{Event, Geometry};
 use libloading::Library;
 use crate::Message;
-use crate::app_settings::app_settings::AppSettings;
-use super::model_main::Model;
+use crate::app_config::AppConfig;
+use super::model::Model;
 use super::drawing::Drawing;
 
 /// Canvas, that draws a model
 pub struct Framework<'a> {
     pub state: &'a State,
-    pub model: &'a Model,
+    pub model: &'a Model<'a>,
     pub scale: f32,
-    pub app_settings: &'a AppSettings,
-    pub mode: &'static str,
-    
-    pub lib: &'a Option<Library>
+    pub app_config: &'a AppConfig,
+    pub mode: &'static str
 }
 
 
@@ -58,8 +56,8 @@ impl canvas::Program<Message> for Framework<'_> {
                 let Some(cursor_pos) = cursor.position_in(bounds) else {
                     return (Status::Ignored, None);
                 };
-                let cursor_pos = if self.app_settings.bound {
-                    self.app_settings.grid.bound(&cursor_pos)
+                let cursor_pos = if self.app_config.bound {
+                    self.app_config.grid.bound(&cursor_pos)
                 }
                 else {
                     cursor_pos
@@ -72,10 +70,10 @@ impl canvas::Program<Message> for Framework<'_> {
 
     fn draw(&self, state: &Self::State, renderer: &Renderer, _theme: &Theme, bounds: Rectangle, cursor: Cursor) -> Vec<Geometry> {
         let content = self.state.cache.draw(renderer, bounds.size(), |frame| {
-            self.model.draw_model(frame, self.scale, &self.app_settings, &self.lib);
+            self.model.draw_model(frame, self.scale, &self.app_config);
         });
 
-        vec![content, state.editing(&self.model.points, renderer, bounds, cursor, self.scale, &self.app_settings.zoom)]
+        vec![content, state.editing(&self.model, renderer, bounds, cursor, self.scale, &self.app_config.zoom)]
     }
     
     fn mouse_interaction(&self, _state: &Self::State, bounds: Rectangle, cursor: Cursor) -> Interaction {
@@ -89,7 +87,7 @@ impl canvas::Program<Message> for Framework<'_> {
 
 impl Framework<'_> {
     fn simple_mouse_events(&self, state: &mut Drawing, mouse_event: mouse::Event, cursor_pos: Point) -> (Status, Option<Message>){
-        let real_cursor = self.app_settings.zoom.reverse(cursor_pos);
+        let real_cursor = self.app_config.zoom.reverse(cursor_pos);
         let message = match mouse_event {
             mouse::Event::ButtonPressed(mouse::Button::Left) => {
                 if state.as_str() != self.mode {
@@ -102,7 +100,7 @@ impl Framework<'_> {
                 }
                 match *state {
                     Drawing::Point {} => {
-                        let a = self.model.find_point(real_cursor, self.scale, self.app_settings.zoom.scale);
+                        let a = self.model.find_point(real_cursor, self.scale, self.app_config.zoom.scale);
                         *state = Drawing::SelectPoint { point: real_cursor, num: a };
                         Some(Message::DefPoint(real_cursor))
                     }
@@ -113,8 +111,8 @@ impl Framework<'_> {
                     }
                     Drawing::LinePoint { mut point, num } => {
                         *state = Drawing::Line {};
-                        if num.is_some() && num.unwrap() < self.model.points.len() {
-                            point = self.model.points[num.unwrap()].0
+                        if num.is_some() && num.unwrap() < self.model.points_len() {
+                            point = self.model.points(num.unwrap())
                         }
 
                         Some(Message::DefPrim(vec![point, real_cursor], (0, 1, -1)))
@@ -132,11 +130,11 @@ impl Framework<'_> {
                     Drawing::ArcTwoPoints { mut point_one, mut point_two, num_one, num_two } => {
                         *state = Drawing::Arc {};
 
-                        if num_one.is_some() && num_one.unwrap() < self.model.points.len() {
-                            point_one = self.model.points[num_one.unwrap()].0
+                        if num_one.is_some() && num_one.unwrap() < self.model.points_len() {
+                            point_one = self.model.points(num_one.unwrap())
                         }
-                        if num_two.is_some() && num_two.unwrap() < self.model.points.len() {
-                            point_two = self.model.points[num_two.unwrap()].0
+                        if num_two.is_some() && num_two.unwrap() < self.model.points_len() {
+                            point_two = self.model.points(num_two.unwrap())
                         }
                         
                         Some(Message::DefPrim(vec![point_one, point_two, real_cursor], (0, 1, 2)))
@@ -151,15 +149,15 @@ impl Framework<'_> {
             mouse::Event::ButtonReleased(mouse::Button::Left) => {
                 if let Drawing::Scaling{ starting_point } = *state {
                     *state = Drawing::None {};
-                    Some(Message::SetZoom(self.app_settings.zoom.reverse(starting_point), real_cursor, false))
+                    Some(Message::SetZoom(self.app_config.zoom.reverse(starting_point), real_cursor, false))
                 }
                 else {
                     None
                 }
             }
             mouse::Event::ButtonPressed(mouse::Button::Right) => {
-                let a = self.model.find_point(real_cursor, self.scale, self.app_settings.zoom.scale);
-                if a >= self.model.points.len() {
+                let a = self.model.find_point(real_cursor, self.scale, self.app_config.zoom.scale);
+                if a >= self.model.points_len() {
                     None
                 } else {
                     match *state {
@@ -169,7 +167,7 @@ impl Framework<'_> {
                         }
 
                         Drawing::ArcPoint { point, num } => {
-                            *state = Drawing::ArcTwoPoints { point_one: point, num_one: num, point_two: self.model.points[a].0, num_two: Some(a) };
+                            *state = Drawing::ArcTwoPoints { point_one: point, num_one: num, point_two: self.model.points(a), num_two: Some(a) };
 
                             None
                         }
@@ -181,7 +179,7 @@ impl Framework<'_> {
                         }
 
                         _ => {
-                            *state = Drawing::SelectPoint { point: self.model.points[a].0, num: a };
+                            *state = Drawing::SelectPoint { point: self.model.points(a), num: a };
                             Some(Message::DefPoint(real_cursor))
                         }
                     }

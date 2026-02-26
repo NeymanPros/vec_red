@@ -1,6 +1,6 @@
 use iced::Point;
 use libloading::{Library, Symbol};
-use crate::model::model_main::Model;
+use crate::model::borrow_model::*;
 
 pub fn f_init_model(lib: &Library) {
     unsafe {
@@ -9,7 +9,7 @@ pub fn f_init_model(lib: &Library) {
     }
 }
 
-pub fn f_create_point(lib: &Library, point: &(Point, f32)) -> i32 {
+pub fn f_create_point(lib: &Library, point: (Point, f32)) -> i32 {
     unsafe {
         let func: Symbol<unsafe fn(&f64, &f64, &f64, &u8) -> i32> = lib.get(b"FCreatePoint").expect("No create point");
         let byte = 0u8;
@@ -19,12 +19,12 @@ pub fn f_create_point(lib: &Library, point: &(Point, f32)) -> i32 {
 }
 
 #[allow(non_snake_case)]
-pub fn f_create_prim(lib: &Library, prim: &(i32, i32, i32)) -> i32 {
+pub fn f_create_prim(lib: &Library, prim: &[i32; 3]) -> i32 {
     unsafe {
         let func: Symbol<unsafe fn(&i32, &i32, &i32, &u8, &f64) -> i32> = lib.get(b"FCreatePrim").expect("no create prim");
         let TPrim = 1u8;
         let VP = 1f64;
-        func(&prim.0, &prim.1, &prim.2, &TPrim, &VP)
+        func(&prim[0], &prim[1], &prim[2], &TPrim, &VP)
     }
 }
 
@@ -58,118 +58,6 @@ pub fn f_build_fm(lib: &Library) -> bool {
     }
 }
 
-/// взять количество узлов в модели
-fn f_get_nnode(lib: &Library) -> i32 {
-    unsafe {
-        let func: Symbol<unsafe fn() -> i32> = lib.get(b"FGetNNode").expect("No get n node");
-        func()
-    }
-}
-/// взять координату X узла N
-fn f_get_xnode(lib: &Library, num: i32) -> f32 {
-    unsafe {
-        let func: Symbol<unsafe fn(i32) -> f64> = lib.get(b"FGetXNode").expect("No get x node");
-        func(num) as f32
-    }
-}
-/// взять координату Y узла N
-fn f_get_ynode(lib: &Library, num: i32) -> f32 {
-    unsafe {
-        let func: Symbol<unsafe fn(i32) -> f64> = lib.get(b"FGetYNode").expect("No get y node");
-        func(num) as f32
-    }
-}
-/// взять количество элементов в модели
-fn f_get_nelem(lib: &Library) -> i32 {
-    unsafe {
-        let func: Symbol<unsafe fn() -> i32> = lib.get(b"FGetNElem").expect("No get n elem");
-        func()
-    }
-}
-/// взять глобальный номер узла с локальным номером num в элементе с номером i
-fn f_get_nnode_in_elem(lib: &Library, i: i32, num: i32) -> i32 {
-    unsafe {
-        let func: Symbol<unsafe fn(i32, i32) -> i32> = lib.get(b"FGetNNodeInElem").expect("No get n node in elem");
-        func(i, num)
-    }
-}
-
-fn f_get_x_point(lib: &Library, i: i32) -> f64 {
-    unsafe {
-        let func: Symbol<unsafe fn (i32) -> f64> = lib.get(b"FGetXPoint").expect("No get x point");
-        func(i)
-    }
-}
-
-fn f_get_y_point(lib: &Library, i: i32) -> f64 {
-    unsafe {
-        let func: Symbol<unsafe fn (i32) -> f64> = lib.get(b"FGetYPoint").expect("No get y point");
-        func(i)
-    }
-}
-
-fn f_get_r_point(lib: &Library, i: i32) -> f64 {
-    unsafe {
-        let func: Symbol<unsafe fn (i32) -> f64> = lib.get(b"FGetRPoint").expect("No get r point");
-        func(i)
-    }
-}
-
-fn f_get_n_point(lib: &Library) -> i32 {
-    unsafe {
-        let func: Symbol<unsafe fn() -> i32> = lib.get(b"FGetNPoint").expect("No num of points");
-        func()
-    }
-}
-
-fn f_get_n_prim(lib: &Library) -> i32 {
-    unsafe {
-        let func: Symbol<unsafe fn() -> i32> = lib.get(b"FGetNPrim").expect("No num of prims");
-        func()
-    }
-}
-fn get_points_prims(lib: &Library) -> (Vec<(Point, f32)>, Vec<(i32, i32, i32)>) {
-    let points_num = f_get_n_point(lib);
-    let prims_num = f_get_n_prim(lib);
-
-    let points = Vec::with_capacity(points_num as usize);
-    let prims = Vec::with_capacity(prims_num as usize);
-
-    (points, prims)
-}
-
-pub fn get_nodes_full(lib: &Library) -> (Vec<Point>, Vec<(i32, i32, i32)>) {
-    let node_num = f_get_nnode(lib);
-    let triangle_num = f_get_nelem(lib);
-    let mut node_dots = Vec::with_capacity(node_num as usize);
-    let mut node_lines = Vec::with_capacity(triangle_num as usize);
-
-    for i in 0..node_num {
-        let mut p = Point::default();
-        p.x = f_get_xnode(lib, i);
-        p.y = f_get_ynode(lib, i);
-        node_dots.push(p);
-    }
-
-    for i in 0..triangle_num {
-        let mut line = (0, 0, 0);
-        line.0 = f_get_nnode_in_elem(lib, i, 1);
-        line.1 = f_get_nnode_in_elem(lib, i, 2);
-        line.2 = f_get_nnode_in_elem(lib, i, 3);
-        node_lines.push(line)
-    }
-
-    (node_dots, node_lines)
-}
-
-pub fn get_full_model(lib: &Library, model: &mut Model) {
-    let (node_points, node_lines) = get_nodes_full(lib);
-    get_points_prims(lib);
-    
-    model.node_points = node_points;
-    model.node_lines = node_lines;
-}
-
 /// Получить магнитную индукцию в треугольном элементе
 fn f_get_bx_by_bm(lib: &Library, i: i32, bx: &mut f64, by: &mut f64, bm: &mut f64) {
     unsafe {
@@ -184,6 +72,14 @@ pub fn get_bm_only(lib: &Library, i: i32) -> f32 {
     let mut bm = 0.;
     f_get_bx_by_bm(lib, i, &mut bx, &mut by, &mut bm);
     bm as f32
+}
+
+pub fn get_points_ref(lib: &Library) -> (*mut *mut TBPoint, *mut i32) {
+    unsafe {
+        let func1: Symbol<fn () -> *mut *mut TBPoint> = lib.get(b"FGetRef").expect("No get ref");
+        let func2: Symbol<fn () -> *mut i32> = lib.get(b"FGetLen").expect("No get len");
+        (func1(), func2())
+    }
 }
 
 pub fn f_open_dat(lib: &Library, path: &String) -> bool {

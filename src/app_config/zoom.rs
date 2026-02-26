@@ -3,6 +3,7 @@ use iced::{Point, Vector};
 #[derive(Copy, Clone)]
 pub struct Zoom {
     pub scale: f32,
+    /// Top left point of Model.
     pub shift: Vector
 }
 
@@ -16,7 +17,7 @@ impl Default for Zoom {
 }
 
 impl Zoom {
-    /// Creates a new [Point]. Adds shift and multiplies coordinates by scale.
+    /// Creates a new [Point]. Subtracts shift and multiplies coordinates by scale.
     pub fn apply (&self, point: Point) -> Point {
         let mut result = point;
         result = result - self.shift;
@@ -24,7 +25,7 @@ impl Zoom {
         result.y *= self.scale;
         result
     }
-    /// Draws back the effect of [Zoom::apply].
+    /// Draws back the effect of [Self::apply].
     pub fn reverse(&self, point: Point) -> Point {
         let mut result = point;
         result.x /= self.scale;

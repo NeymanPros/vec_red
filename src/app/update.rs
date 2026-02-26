@@ -1,14 +1,11 @@
-use iced::{keyboard, Point, Subscription, Vector};
-use iced::keyboard::Key;
-use iced::keyboard::key::Named;
 use iced::widget::text_editor;
 use libloading::Library;
 use crate::{Message, VecRed};
-use crate::app_settings::app_settings::Change;
+use crate::app_config::app_config::Change;
 use crate::foreign_functions::*;
 use crate::model::load_model;
 
-impl VecRed {
+impl VecRed<'_> {
     pub fn update(&mut self, message: Message) {
         match message {
             Message::ChangeMode(new_mode) => {
@@ -42,17 +39,17 @@ impl VecRed {
             }
 
             Message::DefPoint(point) => {
-                let number = self.model.find_point(point, self.scale, self.app_settings.zoom.scale);
-                if self.mode == "Region" && number == self.model.points.len() {
+                let number = self.model.find_point(point, self.scale, self.app_config.zoom.scale);
+                if self.mode == "Region" && number == self.model.points_len() {
                     self.update(Message::CreateRegion(point))
                 }
                 else {
-                    if number == self.model.points.len() {
+                    if number == self.model.points_len() {
                         self.journal.pushed_point();
-                        self.model.points.push((point, self.default_circle));
+                        self.model.points_push(point, self.default_circle);
                         self.state.redraw();
                     }
-                    self.chosen_point = Some((self.model.points[number].0, self.model.points[number].1, number));
+                    self.chosen_point = Some((self.model.points(number), self.model.points_r(number), number));
                     self.change_point = [
                         text_editor::Content::with_text(self.chosen_point.as_ref().unwrap().0.x.to_string().as_str()),
                         text_editor::Content::with_text(self.chosen_point.as_ref().unwrap().0.y.to_string().as_str()),
@@ -62,12 +59,12 @@ impl VecRed {
             }
             
             Message::DefPrim(points, prim) => {
-                let zoom_scale = self.app_settings.zoom.scale.clone();
-                let add_point = |vec_red: &mut VecRed, point: Point| {
+                let zoom_scale = self.app_config.zoom.scale.clone();
+                let add_point = |vec_red: &mut VecRed, point: iced::Point| {
                     let number = vec_red.model.find_point(point, vec_red.scale, zoom_scale);
-                    if number == vec_red.model.points.len() {
+                    if number == vec_red.model.points_len() {
                         vec_red.journal.pushed_point();
-                        vec_red.model.points.push((point, vec_red.default_circle));
+                        vec_red.model.points_push(point, vec_red.default_circle);
                     }
                     number
                 };
@@ -76,13 +73,13 @@ impl VecRed {
                 if prim.2 == -1 {
                     if a != b {
                         self.journal.pushed_prim();
-                        self.model.prims.push((a as i32, b as i32, -1))
+                        self.model.prims_push([a as i32, b as i32, -1])
                     }
                 } else {
                     let c = add_point(self, points[2]);
                     if a != b && a != c && b != c {
                         self.journal.pushed_prim();
-                        self.model.prims.push((a as i32, b as i32, c as i32))
+                        self.model.prims_push([a as i32, b as i32, c as i32])
                     }
                 }
                 self.state.redraw();
@@ -112,12 +109,10 @@ impl VecRed {
             }
 
             Message::ChangeApply => {
-                if !self.chosen_point.is_none()  {
-                    let num = self.chosen_point.as_ref().unwrap().2;
-                    if self.model.points[num].0 != self.chosen_point.as_ref().unwrap().0 || self.model.points[num].1 != self.chosen_point.as_ref().unwrap().1 {
-                        self.journal.changed_point(self.model.points[num], num);
-                        self.model.points[num].0 = self.chosen_point.as_ref().unwrap().0;
-                        self.model.points[num].1 = self.chosen_point.as_ref().unwrap().1;
+                if let Some((chosen_p, chosen_r, chosen_num)) = self.chosen_point {
+                    if self.model.points(chosen_num) != chosen_p || self.model.points_r(chosen_num) != chosen_r {
+                        self.journal.changed_point((self.model.points(chosen_num), self.model.points_r(chosen_num)), chosen_num);
+                        self.model.point_set(chosen_num, (chosen_p, chosen_r));
                         self.state.redraw();
                     }
                 }
@@ -137,28 +132,28 @@ impl VecRed {
                 let Some((_, _, num)) = self.chosen_point else {
                     return
                 };
-                self.model.prims
-                    .iter()
-                    .enumerate()
-                    .rev()
-                    .for_each(|(placement, x)| {
-                        if x.0 == num as i32 || x.1 == num as i32 || x.2 == num as i32 {
-                            self.journal.deleted_prim(x.clone(), placement)
-                        }
-                    });
-                self.model.prims.retain(|x| { x.0 != num as i32 && x.1 != num as i32 && x.2 != num as i32 });
-                if self.model.points.len() >= 1 && num != self.model.points.len() - 1 {
-                    self.journal.deleted_point(self.model.points[num], num);
-                    self.model.points.swap_remove(num);
+                
+                let pred = |x: &[i32; 3]| { x[0] != num as i32 && x[1] != num as i32 && x[2] != num as i32 };
+                self.model.prims_retain_safe(pred, &mut self.journal);
+                if self.model.points_len() >= 1 && num != self.model.points_len() - 1 {
+                    self.journal.deleted_point((self.model.points(num), self.model.points_r(num)), num);
+                    self.model.points_swap(num, self.model.points_len() - 1);
+                    self.model.points_pop();
                 }
                 else {
-                    self.journal.deleted_point(self.model.points[num], num);
-                    self.model.points.pop();
+                    self.journal.deleted_point((self.model.points(num), self.model.points_r(num)), num);
+                    self.model.points_pop();
                 }
-                if num != self.model.points.len() {
-                    self.model.replace_prim(self.model.points.len(), num);
+                if num != self.model.points_len() {
+                    self.model.replace_prim(self.model.points_len() as i32, num as i32);
                 }
-                self.chosen_point = None;
+                if num < self.model.points_len() {
+                    self.chosen_point.as_mut().unwrap().0 = self.model.points(num);
+                    self.chosen_point.as_mut().unwrap().1 = self.model.points_r(num);
+                }
+                else{
+                    self.chosen_point = None;
+                }
                 self.mode = "Move";
                 self.state.redraw();
             }
@@ -170,77 +165,90 @@ impl VecRed {
             }
 
             Message::ClearAll => {
-                self.model.points.clear();
-                self.model.prims.clear();
-                self.model.node_points.clear();
-                self.model.node_lines.clear();
+                self.model.clear();
                 self.journal.clear();
                 self.chosen_point = None;
                 self.state.redraw()
             }
+            
+            Message::WindowResized(new_size) => 
+                self.app_config.model_size = 
+                    new_size - iced::Size::new(200., 0.),
 
-            Message::Scale(extent) => {
+            Message::ZoomScale(extent) => {
                 if extent == 0.0 {
-                    self.app_settings.zoom.scale = 1.0;
-                    self.app_settings.zoom.shift = Vector::default()
+                    self.app_config.zoom.scale = 1.0;
+                    self.app_config.zoom.shift = iced::Vector::default()
                 } else {
-                    self.app_settings.zoom.scale *= extent
+                    self.app_config.zoom.scale *= extent
                 }
                 self.mode = "Move";
                 self.state.redraw()
             }
 
-            Message::Shift(add_shift) => {
-                self.app_settings.zoom.shift = self.app_settings.zoom.shift + add_shift * (1.0 / self.app_settings.zoom.scale);
+            Message::ZoomShift(add_shift) => {
+                self.app_config.zoom.shift = self.app_config.zoom.shift + add_shift * (1.0 / self.app_config.zoom.scale);
                 self.state.redraw()
             }
             
             Message::SetZoom(start, end, force) => {
-                let scale = self.app_settings.zoom.scale;
+                let scale = self.app_config.zoom.scale;
                 let big_enough = ((end.x - start.x) * scale).abs() > 25.0 &&
                     ((end.y - start.y) * scale).abs() > 25.0;
                 
                 if force || big_enough {
-                    let min_x = start.x.min(end.x);
-                    let max_x = start.x.max(end.x);
-                    let min_y = start.y.min(end.y);
-                    let max_y = start.y.max(end.y);
+                    let min_x = f32::min(start.x, end.x);
+                    let max_x = f32::max(start.x, end.x);
+                    let min_y = f32::min(start.y, end.y);
+                    let max_y = f32::max(start.y, end.y);
 
-                    self.app_settings.zoom.shift.x = min_x;
-                    self.app_settings.zoom.shift.y = min_y;
-                    self.app_settings.zoom.scale = 900.0/f32::max(max_x - min_x, max_y - min_y).abs();
+                    self.app_config.zoom.shift.x = min_x;
+                    self.app_config.zoom.shift.y = min_y;
+                    
+                    let x_scale = self.app_config.model_size.width/(max_x - min_x).abs();
+                    let y_scale = self.app_config.model_size.height/(max_y - min_y).abs();
+                    
+                    self.app_config.zoom.scale = f32::min(x_scale, y_scale);
                     self.state.redraw()
                 }
             }
 
-            Message::SettingsOpen(start_showing) => {
-                self.app_settings.shown = start_showing;
+            Message::ConfigOpen(start_showing) => {
+                self.app_config.showing = start_showing;
                 if !start_showing {
                     self.mode = "Move";
                     self.state.redraw();
-                    self.app_settings.grid.redraw()
+                    self.app_config.grid.redraw()
                 }
                 else {
-                    self.app_settings.update(Change::Open)
+                    self.app_config.update(Change::Open)
                 }
             }
 
-            Message::SettingsEdit(action) => {
-                self.app_settings.update(action)
+            Message::ConfigEdit(action) => {
+                self.app_config.update(action)
             }
 
-            Message::SendModel => {
-                unsafe { 
-                    self.lib = Some(Library::new("C:/Users/alexe/Downloads/FLib/FLib.dll").expect("No lib found")); 
-                }
+            Message::OpenMathCore => {
+                self.lib = unsafe { 
+                    let temp_lib = Library::new("C:/Users/alexe/Downloads/FLib/FLib.dll");
+                    if temp_lib.is_err() {
+                        println!("No library");
+                        return;
+                    }
+                    Some(temp_lib.unwrap())
+                };
                 let lib = self.lib.as_ref().unwrap();
                 f_init_model(lib);
-                for i in &self.model.points {
-                    f_create_point(lib, i);
+                for i in 0..self.model.points_len() {
+                    f_create_point(lib, (self.model.points(i), self.model.points_r(i)));
                 }
-                for j in &self.model.prims {
-                    f_create_prim(lib, j);
+                for j in 0..self.model.prims_len() {
+                    f_create_prim(lib, self.model.prims(j));
                 }
+                
+                let points_ref = get_points_ref(lib);
+                self.model.make_borrow(points_ref);
             }
 
             Message::CreateRegion(point) => {
@@ -254,78 +262,10 @@ impl VecRed {
                 if let Some(lib) = self.lib.as_ref() {
                     let out = f_build_fm(lib);
                     println!("Triangle is {}", out);
-                    (self.model.node_points, self.model.node_lines) = get_nodes_full(lib);
-                    println!("{:?}", self.model.node_points.get(1));
+                    //(self.model.node_points, self.model.node_lines) = get_nodes_full(lib);
                     self.state.redraw()
                 }
             }
-        }
-    }
-}
-
-impl VecRed {
-    pub(crate) fn subscription(&self) -> Subscription<Message> {
-        let keyboard_events = keyboard::on_key_press(|a, b| {
-            Self::shortcuts(a, b)
-        });
-        //let mouse_events = iced::mouse::Event::CursorEntered;
-        Subscription::batch(vec![keyboard_events])
-    }
-
-    fn shortcuts (key: Key, modifiers: keyboard::Modifiers) -> Option<Message> {
-        if modifiers.is_empty() {
-            return match key {
-                Key::Named(Named::Delete) => {
-                    Some(Message::DeletePoint)
-                }
-                Key::Named(Named::ArrowLeft) => {
-                    Some(Message::Shift(Vector::new(-100.0, 0.0)))
-                }
-                Key::Named(Named::ArrowRight) => {
-                    Some(Message::Shift(Vector::new(100.0, 0.0)))
-                }
-                Key::Named(Named::ArrowUp) => {
-                    Some(Message::Shift(Vector::new(0.0, -100.0)))
-                }
-                Key::Named(Named::ArrowDown) => {
-                    Some(Message::Shift(Vector::new(0.0, 100.0)))
-                }
-                _ => { None }
-            }
-        }
-        match modifiers {
-            keyboard::Modifiers::SHIFT => {
-                match key {
-                    Key::Named(Named::ArrowLeft) => {
-                        Some(Message::Shift(Vector::new(-10.0, 0.0)))
-                    }
-                    Key::Named(Named::ArrowRight) => {
-                        Some(Message::Shift(Vector::new(10.0, 0.0)))
-                    }
-                    Key::Named(Named::ArrowUp) => {
-                        Some(Message::Shift(Vector::new(0.0, -10.0)))
-                    }
-                    Key::Named(Named::ArrowDown) => {
-                        Some(Message::Shift(Vector::new(0.0, 10.0)))
-                    }
-                    _ => { None }
-                }
-            }
-            keyboard::Modifiers::CTRL => {
-                match key.as_ref() {
-                    Key::Character("z") => {
-                        Some(Message::Undo)
-                    }
-                    Key::Character("=") => {
-                        Some(Message::Scale(1.1))
-                    }
-                    Key::Character("-") => {
-                        Some(Message::Scale(0.9))
-                    }
-                    _ => { None }
-                }
-            }
-            _ => { None }
         }
     }
 }
