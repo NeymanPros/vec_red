@@ -15,13 +15,13 @@ Already implemented instruments for:
 **Crates**
 
 <li>iced (0.13.1)</li>
-<li>csv</li>
+<li>csv + serde</li>
 <li>libloading</li>
 
 ---
 
 **Components**
 
-<li>*app*. Main event loop, structure of graphical interface and message proceed.</li>
-<li>*model*. Instruments for creating, loading and editing a model.</li>
-<li>*app_settings*. Settings for app and model, most notable are grid, colors, zoom. </li>
+<li> app. Main event loop, structure of graphical interface and message proceed.</li>
+<li> model. Instruments for creating, loading and editing a model.</li>
+<li> app_settings. Settings for app and model, most notable are grid, colors, zoom. </li>
