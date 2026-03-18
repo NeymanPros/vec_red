@@ -4,7 +4,7 @@ use crate::app_config::app_config::{AppConfig, NodeMode};
 use crate::app_config::zoom::Zoom;
 use super::model::*;
 
-impl Model<'_> {
+impl Model {
     pub fn draw_model(&self, frame: &mut canvas::Frame, scale: f32, app_config: &AppConfig) {
         if app_config.prims_show {
             let prim_color = app_config.get_color("Prims");
@@ -97,7 +97,7 @@ impl Model<'_> {
                         let is_visible = true; //model_config.is_lines_inside()
                         if is_visible {
                             let triangle = draw_triangle(p1, p2, p3);
-                            let current_green = self.node_lines_bm(index);
+                            let current_green = self.get_bm_only(index as i32);
                             frame.fill(&triangle, iced::Color::from_rgb(0.0, current_green / max, 0.0));
                         }
                     }

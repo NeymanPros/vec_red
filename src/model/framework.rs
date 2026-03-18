@@ -12,10 +12,10 @@ use super::drawing::Drawing;
 /// Canvas, that draws a model
 pub struct Framework<'a> {
     pub state: &'a State,
-    pub model: &'a Model<'a>,
+    pub model: &'a Model,
     pub scale: f32,
     pub app_config: &'a AppConfig,
-    pub mode: &'static str
+    pub mode: &'static str,
 }
 
 
@@ -70,7 +70,7 @@ impl canvas::Program<Message> for Framework<'_> {
 
     fn draw(&self, state: &Self::State, renderer: &Renderer, _theme: &Theme, bounds: Rectangle, cursor: Cursor) -> Vec<Geometry> {
         let content = self.state.cache.draw(renderer, bounds.size(), |frame| {
-            self.model.draw_model(frame, self.scale, &self.app_config);
+            self.model.draw_model(frame, self.scale, self.app_config);
         });
 
         vec![content, state.editing(&self.model, renderer, bounds, cursor, self.scale, &self.app_config.zoom)]

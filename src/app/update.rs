@@ -5,7 +5,7 @@ use crate::app_config::app_config::Change;
 use crate::foreign_functions::*;
 use crate::model::load_model;
 
-impl VecRed<'_> {
+impl VecRed {
     pub fn update(&mut self, message: Message) {
         match message {
             Message::ChangeMode(new_mode) => {
@@ -59,7 +59,7 @@ impl VecRed<'_> {
             }
             
             Message::DefPrim(points, prim) => {
-                let zoom_scale = self.app_config.zoom.scale.clone();
+                let zoom_scale = self.app_config.zoom.scale;
                 let add_point = |vec_red: &mut VecRed, point: iced::Point| {
                     let number = vec_red.model.find_point(point, vec_red.scale, zoom_scale);
                     if number == vec_red.model.points_len() {
@@ -230,37 +230,49 @@ impl VecRed<'_> {
             }
 
             Message::OpenMathCore => {
+                if self.lib.is_some() {
+                    println!("Already opened!");
+                    return;
+                }
                 self.lib = unsafe { 
-                    let temp_lib = Library::new("C:/Users/alexe/Downloads/FLib/FLib.dll");
+                    let temp_lib = Library::new("/home/alexe/.wine/drive_c/users/alexe/Documents/FLib.dll");
                     if temp_lib.is_err() {
                         println!("No library");
                         return;
                     }
-                    Some(temp_lib.unwrap())
+                    Some(
+                        std::rc::Rc::new(
+                        temp_lib.unwrap()
+                    ))
                 };
                 let lib = self.lib.as_ref().unwrap();
-                f_init_model(lib);
+                f_init_model(lib.clone());
                 for i in 0..self.model.points_len() {
-                    f_create_point(lib, (self.model.points(i), self.model.points_r(i)));
+                    f_create_point(lib.clone(), (self.model.points(i), self.model.points_r(i)));
                 }
                 for j in 0..self.model.prims_len() {
-                    f_create_prim(lib, self.model.prims(j));
+                    f_create_prim(lib.clone(), self.model.prims(j));
                 }
-                
-                let points_ref = get_points_ref(lib);
-                self.model.make_borrow(points_ref);
+
+                let points_ref = get_points_ref(lib.clone());
+                let prims_ref = get_prims_ref(lib.clone());
+                let nodes_ref = get_nodes_ref(lib.clone());
+                let elems_ref = get_elems_ref(lib.clone());
+                let library = self.lib.as_ref().unwrap().clone();
+                self.model.make_borrow(library, points_ref, prims_ref, nodes_ref, elems_ref);
+                println!("Finished")
             }
 
             Message::CreateRegion(point) => {
                 if let Some(lib) = self.lib.as_ref() {
-                    let out = f_create_region(lib, &point);
+                    let out = f_create_region(lib.clone(), &point);
                     println!("Region is {out}");
                 }
             }
 
             Message::CreateTriangle => {
                 if let Some(lib) = self.lib.as_ref() {
-                    let out = f_build_fm(lib);
+                    let out = f_build_fm(lib.clone());
                     println!("Triangle is {}", out);
                     //(self.model.node_points, self.model.node_lines) = get_nodes_full(lib);
                     self.state.redraw()

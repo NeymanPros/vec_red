@@ -3,7 +3,7 @@ use iced::keyboard::Key;
 use iced::keyboard::key::Named;
 use crate::{Message, VecRed};
 
-impl VecRed<'_> {
+impl VecRed {
     pub(crate) fn subscription(&self) -> Subscription<Message> {
         let keyboard_events = keyboard::on_key_press(|a, b| {
             Self::shortcuts(a, b)

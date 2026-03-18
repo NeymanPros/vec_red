@@ -1,4 +1,5 @@
 use iced::Point;
+use libloading::Library;
 use crate::app::undo_manager::UndoManager;
 use super::borrow_model::*;
 use super::own_model::*;
@@ -7,14 +8,22 @@ use super::own_model::*;
 #[derive(Debug)]
 pub enum Model {
     Own {model: OwnModel},
-    Borrow {model: BorrowModel<'a>}
+    Borrow {model: BorrowModel}
 }
 
-impl<'a> Model<'a> {
-    pub fn make_borrow(&mut self, points_ref: (*mut *mut TBPoint, *mut i32)) {
+impl Model {
+    pub fn make_borrow(&mut self, lib: std::rc::Rc<Library>, 
+                       points_ref: (*const *mut TBPoint, /* *mut*/ i32),
+                       prims_ref: (*const *mut TPrimitive, i32),
+                       nodes_ref: (*const *mut TNode, i32),
+                       elems_ref: (*const *mut TElement, i32)) {
         *self = Self::Borrow {
             model: BorrowModel::new (
-                points_ref
+                lib, 
+                points_ref,
+                prims_ref, 
+                nodes_ref, 
+                elems_ref
             )
         }
     }
@@ -26,7 +35,7 @@ impl<'a> Model<'a> {
     }
 }
 
-impl Model<'_> {
+impl Model {
     pub fn points(&self, index: usize) -> Point {
         match self {
             Self::Own { model } => model.points[index].0,
@@ -51,9 +60,6 @@ impl Model<'_> {
             Self::Borrow { model } => model.get_node(index)
         }
     }
-    pub fn node_lines_bm(&self, index: usize) -> f32 {
-        0.
-    }
     pub fn elems(&self, index: usize) -> &[i32; 3] {
         match self {
             Self::Own { model } => &model.node_lines[index],
@@ -70,30 +76,30 @@ impl Model<'_> {
     pub fn points_len(&self) -> usize {
         match self {
             Self::Own { model } => model.points.len(),
-            Self::Borrow { model } => model.points.len()
+            Self::Borrow { model } => model.points_len()
         }
     }
     pub fn prims_len(&self) -> usize {
         match self {
             Self::Own { model } => model.prims.len(),
-            Self::Borrow { model } => model.prims.len()
+            Self::Borrow { model } => model.prims_len()
         }
     }
     pub fn nodes_len(&self) -> usize {
         match self {
             Self::Own { model } => model.node_points.len(),
-            Self::Borrow { model } => model.nodes.len()
+            Self::Borrow { model } => model.nodes_len()
         }
     }
     pub fn elems_len(&self) -> usize {
         match self {
             Self::Own { model } => model.node_lines.len(),
-            Self::Borrow { model } => model.elems.len()
+            Self::Borrow { model } => model.elems_len()
         }
     }
 }
 
-impl Model<'_> {
+impl Model {
     pub fn points_push(&mut self, point: Point, circle: f32) {
         match self {
             Self::Own { model } => model.points.push((point, circle)),
@@ -109,7 +115,7 @@ impl Model<'_> {
     pub fn points_pop(&mut self) {
         match self {
             Self::Own { model } => { model.points.pop(); },
-            Self::Borrow { model } => { model.points.pop(); }
+            Self::Borrow { model } => { model.points_pop(); }
         }
     }
     pub fn points_swap(&mut self, a: usize, b: usize) {
@@ -121,7 +127,7 @@ impl Model<'_> {
     pub fn prims_pop(&mut self) {
         match self {
             Self::Own { model } => { model.prims.pop(); },
-            Self::Borrow { model } => { model.prims.pop(); }
+            Self::Borrow { model } => { model.prims_pop(); }
         }
     }
     pub fn prims_insert(&mut self, index: usize, element: [i32; 3]) {
@@ -132,8 +138,16 @@ impl Model<'_> {
     }
 }
 
+impl Model {
+    pub fn get_bm_only(&self, index: i32) -> f32 {
+        match self {
+            Self::Borrow {model} => model.get_bm_only(index),
+            _ => 0.
+        }
+    }
+}
 
-impl Model<'_> {
+impl Model {
     pub fn clear(&mut self) {
         match self {
             Self::Own {model} => model.clear(), 
@@ -169,7 +183,7 @@ impl Model<'_> {
     }
 }
 
-impl Default for Model<'_> {
+impl Default for Model {
     fn default() -> Self {
         Self::Own {model: OwnModel::default()}
     }

@@ -3,6 +3,7 @@ mod app;
 mod foreign_functions;
 mod app_config;
 
+use std::rc::Rc;
 use app::undo_manager::UndoManager;
 use app_config::app_config::{AppConfig, Change};
 use model::framework::State;
@@ -14,12 +15,12 @@ use iced::widget::text_editor;
 use libloading::Library;
 
 /// Main event loop.
-struct VecRed<'a> {
+struct VecRed {
     path_to_load: text_editor::Content,
     journal: UndoManager,
 
     state: State,
-    model: Model<'a>,
+    model: Model,
 
     /// Point, radius, number in dots.
     chosen_point: Option<(Point, f32, usize)>,
@@ -33,7 +34,7 @@ struct VecRed<'a> {
     scale: f32,
     default_circle: f32,
 
-    lib: Option<Library>
+    lib: Option<Rc<Library>>
 }
 
 /// Messages produced by [VecRed]
@@ -69,7 +70,7 @@ enum Message {
     CreateTriangle
 }
 
-impl Default for VecRed<'_> {
+impl Default for VecRed {
     fn default() -> Self {
         Self {
             journal: UndoManager::default(),

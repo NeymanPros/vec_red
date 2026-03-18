@@ -1,10 +1,11 @@
+use std::rc::Rc;
 use crate::model::Model;
 use iced::Point;
 use csv::{WriterBuilder, ReaderBuilder};
 use libloading::Library;
 use crate::foreign_functions::{f_open_dat, f_save_dat};
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+//#[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct Csv {
     p1: Option<f32>,
     p2: Option<f32>,
@@ -59,9 +60,8 @@ impl Csv {
     }
 }
 
-pub fn open_model(lib: &Option<Library>, path: String, model: &mut Model) -> bool {
+pub fn open_model(lib: &Option<Rc<Library>>, path: String, model: &mut Model) -> bool {
     let path = path.trim().to_string();
-    println!("This is path: {}\n and last 3: {:?}", path, path.get((path.len() - 3)..=(path.len() - 1)));
     if path.len() >= 3 {
         match path.get((path.len() - 3)..=(path.len() - 1)) {
             //Some("csv") => open_csv_model(path, model),
@@ -114,9 +114,9 @@ pub fn open_model(lib: &Option<Library>, path: String, model: &mut Model) -> boo
     false
 }*/
 
-fn open_bin_model(lib: &Option<Library>, path: String, model: &mut Model) -> bool {
+fn open_bin_model(lib: &Option<Rc<Library>>, path: String, model: &mut Model) -> bool {
     if let Some(real_lib) = lib {
-        if !f_open_dat(real_lib, &path) {
+        if !f_open_dat(real_lib.clone(), &path) {
             return false;
         }
         //crate::foreign_functions::get_full_model(real_lib, model);
@@ -127,7 +127,7 @@ fn open_bin_model(lib: &Option<Library>, path: String, model: &mut Model) -> boo
     }
 }
 
-pub fn export_model(lib: &Option<Library>, path: String, model: &Model) -> bool {
+pub fn export_model(lib: &Option<Rc<Library>>, path: String, model: &Model) -> bool {
     let path = path.trim().to_string();
     if path.len() >= 4 {
         match path.get((path.len() - 3)..=(path.len() - 1)) {
@@ -161,9 +161,9 @@ pub fn export_model(lib: &Option<Library>, path: String, model: &Model) -> bool 
     false
 }*/
 
-fn export_bin_model(lib: &Option<Library>, path: String) -> bool {
+fn export_bin_model(lib: &Option<Rc<Library>>, path: String) -> bool {
     if let Some(real_lib) = lib {
-        f_save_dat(real_lib, path)
+        f_save_dat(real_lib.clone(), path)
     }
     else {
         false

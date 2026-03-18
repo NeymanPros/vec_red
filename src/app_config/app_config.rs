@@ -154,7 +154,7 @@ impl AppConfig {
         column![circles, points, prims, node_point, node_line, bound_grid, ]
     }
 
-    fn color_element(&self, name: &'static str) -> container::Container<Message> {
+    fn color_element(&self, name: &'static str) -> container::Container<'_, Message> {
         let (show_tick, colors) = match name {
             "Circles" => (checkbox(name, self.circles_show).on_toggle(|a| ConfigEdit(Change::Circles(a))), self.circle_color),
             "Points" => (checkbox(name, self.points_show).on_toggle(|a| ConfigEdit(Change::Points(a))), self.point_color),

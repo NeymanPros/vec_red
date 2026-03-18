@@ -1,15 +1,16 @@
+use std::rc::Rc;
 use iced::Point;
 use libloading::{Library, Symbol};
 use crate::model::borrow_model::*;
 
-pub fn f_init_model(lib: &Library) {
+pub fn f_init_model(lib: Rc<Library>) {
     unsafe {
         let func: Symbol<unsafe fn()> = lib.get(b"FInitModel").unwrap();
         func()
     }
 }
 
-pub fn f_create_point(lib: &Library, point: (Point, f32)) -> i32 {
+pub fn f_create_point(lib: Rc<Library>, point: (Point, f32)) -> i32 {
     unsafe {
         let func: Symbol<unsafe fn(&f64, &f64, &f64, &u8) -> i32> = lib.get(b"FCreatePoint").expect("No create point");
         let byte = 0u8;
@@ -18,8 +19,15 @@ pub fn f_create_point(lib: &Library, point: (Point, f32)) -> i32 {
     }
 }
 
+pub fn f_del_point(lib: Rc<Library>, index: i32) {
+    unsafe {
+        let func: Symbol<fn (i32) -> bool> = lib.get(b"FDelPoint").expect("No del point");
+        func(index);
+    }
+}
+
 #[allow(non_snake_case)]
-pub fn f_create_prim(lib: &Library, prim: &[i32; 3]) -> i32 {
+pub fn f_create_prim(lib: Rc<Library>, prim: &[i32; 3]) -> i32 {
     unsafe {
         let func: Symbol<unsafe fn(&i32, &i32, &i32, &u8, &f64) -> i32> = lib.get(b"FCreatePrim").expect("no create prim");
         let TPrim = 1u8;
@@ -29,7 +37,7 @@ pub fn f_create_prim(lib: &Library, prim: &[i32; 3]) -> i32 {
 }
 
 #[allow(non_snake_case)]
-pub fn f_create_region(lib: &Library, point: &Point) -> i32 {
+pub fn f_create_region(lib: Rc<Library>, point: &Point) -> i32 {
     unsafe {
         let func: Symbol<unsafe fn(&f64, &f64, &f64, &bool, &u8,
                                    &String, &f64, &f64, &f64, &f64, &f64, &f64,
@@ -51,7 +59,7 @@ pub fn f_create_region(lib: &Library, point: &Point) -> i32 {
     }
 }
 
-pub fn f_build_fm(lib: &Library) -> bool {
+pub fn f_build_fm(lib: Rc<Library>) -> bool {
     unsafe {
         let func: Symbol<unsafe fn() -> bool> = lib.get(b"FBuildFM").expect("No build fm");
         func()
@@ -59,14 +67,14 @@ pub fn f_build_fm(lib: &Library) -> bool {
 }
 
 /// Получить магнитную индукцию в треугольном элементе
-fn f_get_bx_by_bm(lib: &Library, i: i32, bx: &mut f64, by: &mut f64, bm: &mut f64) {
+fn f_get_bx_by_bm(lib: Rc<Library>, index: i32, bx: &mut f64, by: &mut f64, bm: &mut f64) {
     unsafe {
         let func: Symbol<fn (i32, &mut f64, &mut f64, &mut f64)> = lib.get(b"FGetBxByBm").expect("No bm");
-        func(i, bx, by, bm)
+        func(index, bx, by, bm)
     }
 }
 
-pub fn get_bm_only(lib: &Library, i: i32) -> f32 {
+pub fn get_bm_only(lib: Rc<Library>, i: i32) -> f32 {
     let mut bx = 0.;
     let mut by = 0.;
     let mut bm = 0.;
@@ -74,15 +82,39 @@ pub fn get_bm_only(lib: &Library, i: i32) -> f32 {
     bm as f32
 }
 
-pub fn get_points_ref(lib: &Library) -> (*mut *mut TBPoint, *mut i32) {
+pub fn get_points_ref(lib: Rc<Library>) -> (*const *mut TBPoint,/* *mut*/ i32) {
     unsafe {
-        let func1: Symbol<fn () -> *mut *mut TBPoint> = lib.get(b"FGetRef").expect("No get ref");
-        let func2: Symbol<fn () -> *mut i32> = lib.get(b"FGetLen").expect("No get len");
+        let func1: Symbol<fn () -> *const *mut TBPoint> = lib.get(b"FGetPPoints").expect("No get points ref!");
+        let func2: Symbol<fn () ->/* *mut*/ i32> = lib.get(b"FGetNPoint").expect("No get points len!");
         (func1(), func2())
     }
 }
 
-pub fn f_open_dat(lib: &Library, path: &String) -> bool {
+pub fn get_prims_ref(lib: Rc<Library>) -> (*const *mut TPrimitive,/* *mut*/ i32) {
+    unsafe {
+        let func1: Symbol<fn () -> *const *mut TPrimitive> = lib.get(b"FGetPPrim").expect("No get prims ref!");
+        let func2: Symbol<fn () -> i32> = lib.get(b"FGetNPrim").expect("No get prims len!");
+        (func1(), func2())
+    }
+}
+
+pub fn get_nodes_ref(lib: Rc<Library>) -> (*const *mut TNode,/* *mut*/ i32) {
+    unsafe {
+        let func1: Symbol<fn () -> *const *mut TNode> = lib.get(b"FGetPNode").expect("No get nodes ref!");
+        let func2: Symbol<fn () -> i32> = lib.get(b"FGetNNode").expect("No get nodes len!");
+        (func1(), func2())
+    }
+}
+
+pub fn get_elems_ref(lib: Rc<Library>) -> (*const *mut TElement,/* *mut*/ i32) {
+    unsafe {
+        let func1: Symbol<fn () -> *const *mut TElement> = lib.get(b"FGetPElem").expect("No get elems ref!");
+        let func2: Symbol<fn () -> i32> = lib.get(b"FGetNElem").expect("No get elems len!");
+        (func1(), func2())
+    }
+}
+
+pub fn f_open_dat(lib: Rc<Library>, path: &String) -> bool {
     let mut path_vec: Vec<&str> = path.split('/').collect();
     if path_vec.len() <= 1 {
         path_vec  = path.split('\\').collect();
@@ -112,7 +144,7 @@ pub fn f_open_dat(lib: &Library, path: &String) -> bool {
     }
 }
 
-pub fn f_save_dat(lib: &Library, path: String) -> bool {
+pub fn f_save_dat(lib: Rc<Library>, path: String) -> bool {
     let mut path_vec: Vec<&str> = path.split('/').collect();
     if path_vec.len() <= 1 {
         path_vec  = path.split('\\').collect();

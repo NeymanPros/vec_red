@@ -2,8 +2,9 @@ use iced::{Center, Fill};
 use iced::widget::{container, row, stack, Scrollable, button, text, text_editor, Column, column, Slider};
 use crate::{Message, VecRed};
 use crate::model::framework::Framework;
+use std::default::Default;
 
-impl VecRed<'_> {
+impl VecRed {
     pub fn view(&self) -> iced::Element<'_, Message> {
         if self.app_config.showing {
             self.app_config.view()
@@ -42,7 +43,7 @@ impl VecRed<'_> {
 }
 
 
-impl VecRed<'_> {
+impl VecRed {
     /// Summary for the right panel
     fn side_panel(&self) -> Scrollable<'_, Message> {
         let make_separator = || -> container::Container<_> {
