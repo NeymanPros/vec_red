@@ -1,3 +1,4 @@
+use std::slice::from_raw_parts;
 use iced::widget::canvas;
 use iced::widget::canvas::{Path, Stroke, path::Arc};
 use crate::app_config::app_config::{AppConfig, NodeMode};
@@ -17,7 +18,7 @@ impl Model {
                             p.line_to(app_config.zoom.apply(self.points(prim[1] as usize)));
                         }
                     } else {
-                        self.approx_arc(p, prim, &app_config.zoom)
+                        //self.approx_arc(p, prim, &app_config.zoom)
                     }
                 }
             });
@@ -45,6 +46,7 @@ impl Model {
         }
 
         self.draw_nodes(app_config, frame, scale);
+        
         if app_config.node_points_show {
             let node_point_color = app_config.get_color("Node points");
             for index in 0..self.nodes_len() {
@@ -53,10 +55,14 @@ impl Model {
                     let point = Path::circle(app_config.zoom.apply(node), scale);
                     frame.fill(&point, node_point_color);
                 }
+                if app_config.node_mode.as_str() != "None" {
+                    self.draw_approx(app_config, frame, scale, index)
+                }
             }
         }
     }
 
+    #[allow(dead_code)]
     /// Must be rewritten!
     fn approx_arc (&self, p: &mut canvas::path::Builder, prim: &[i32; 3], zoom: &Zoom) {
         let arc = Arc{
@@ -69,22 +75,30 @@ impl Model {
     }
 
     fn draw_nodes (&self, app_config: &AppConfig, frame: &mut canvas::Frame, scale: f32) {
-        let draw_triangle = |p1: i32, p2: i32, p3: i32| {
-            Path::new(|path| {
-                path.move_to(app_config.zoom.apply(self.nodes(p1 as usize)));
-                path.line_to(app_config.zoom.apply(self.nodes(p2 as usize)));
-                path.line_to(app_config.zoom.apply(self.nodes(p3 as usize)));
-                path.line_to(app_config.zoom.apply(self.nodes(p1 as usize)));
-            })
+        let triangle_path = |elem: &[i32; 3]| -> Option<Path> {
+            let is_visible =
+                app_config.is_line_inside(self.nodes(elem[0] as usize), self.nodes(elem[1] as usize)) ||
+                    app_config.is_line_inside(self.nodes(elem[0] as usize), self.nodes(elem[2] as usize)) ||
+                    app_config.is_line_inside(self.nodes(elem[1] as usize), self.nodes(elem[2] as usize));
+            if is_visible {
+                return Some(
+                Path::new(|path| {
+                    path.move_to(app_config.zoom.apply(self.nodes(elem[0] as usize)));
+                    path.line_to(app_config.zoom.apply(self.nodes(elem[1] as usize)));
+                    path.line_to(app_config.zoom.apply(self.nodes(elem[2] as usize)));
+                    path.line_to(app_config.zoom.apply(self.nodes(elem[0] as usize)));
+                })
+                )
+            };
+            None
         };
         match app_config.node_mode {
             NodeMode::PureLines {} => {
                 let node_line_color = app_config.get_color("Node lines");
                 for index in 0..self.elems_len() {
-                    let &[p1, p2, p3] = self.elems(index);
-                    let is_visible = true; //model_config.is_line_inside()
-                    if is_visible {
-                        let triangle = draw_triangle(p1, p2, p3);
+                    let elem = self.elems(index);
+
+                    if let Some(triangle) = triangle_path(elem) {
                         frame.stroke(&triangle, Stroke::default().with_color(node_line_color).with_width(scale / 2.0))
                     }
                 }
@@ -93,21 +107,37 @@ impl Model {
             NodeMode::Green { max } => {
                 if self.is_borrowed() {
                     for index in 0..self.elems_len() {
-                        let &[p1, p2, p3] = self.elems(index);
-                        let is_visible = true; //model_config.is_lines_inside()
-                        if is_visible {
-                            let triangle = draw_triangle(p1, p2, p3);
+                        let elem = self.elems(index);
+
+                        if let Some(triangle) = triangle_path(elem) {
                             let current_green = self.get_bm_only(index as i32);
                             frame.fill(&triangle, iced::Color::from_rgb(0.0, current_green / max, 0.0));
                         }
                     }
                 }
                 else {
-                    println!("Model needs to be borrowed!")
+                    println!("Model needs to be borrowed! Try sending it.")
                 }
             }
 
             _ => {}
+        }
+    }
+    
+    fn draw_approx(&self, app_config: &AppConfig, frame: &mut canvas::Frame, scale: f32, index: usize) {
+        if let Some(node) = self.t_node_ref(index) {
+            let start = app_config.zoom.apply(self.nodes(index));
+            let end_indexes = unsafe { from_raw_parts(node.NSW, node.KolSW as usize) };
+            let color = app_config.get_color("Node lines");
+            for &end_inx in end_indexes {
+                if end_inx < index as i32 {
+                    let end = app_config.zoom.apply(self.nodes(end_inx as usize));
+                    if app_config.is_line_inside(start, end) {
+                        let new_line = Path::line(start, end);
+                        frame.stroke(&new_line, Stroke::default().with_color(color).with_width(scale/2.0))
+                    }
+                }
+            }
         }
     }
 }

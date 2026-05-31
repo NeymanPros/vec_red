@@ -12,7 +12,7 @@ pub enum NodeMode {
 }
 
 impl NodeMode {
-    fn as_str(&self) -> &str {
+    pub(crate) fn as_str(&self) -> &str {
         match self {
             Self::None {} => "None",
             Self::PureLines {} => "Pure lines",
@@ -216,6 +216,7 @@ impl AppConfig {
 }
 
 impl AppConfig {
+    /// Accepts "Circles", "Points", "Prims", "Node points", "Node lines".
     pub fn get_color(&self, name: &'static str) -> iced::Color {
         let array = match name {
             "Circles" => self.circle_color,
@@ -255,7 +256,6 @@ impl AppConfig {
             return false
         }
         
-        
         true
     }
 }
@@ -274,13 +274,13 @@ impl Default for AppConfig {
             prims_show: true,
             circles_show: true,
             node_points_show: true,
-            node_mode: NodeMode::None {},
+            node_mode: NodeMode::PureLines {},
 
             circle_color: [0, 0, 255],
             point_color: [0, 0, 0],
             prim_color: [0, 0, 0],
             node_point_color: [128, 12, 128],
-            node_line_color: [128, 128, 128],
+            node_line_color: [0, 0, 0],
 
             grid_modes: ["Circles", "Squares", "None"],
             write_zoom: [text_editor::Content::default(), text_editor::Content::default(), text_editor::Content::default()]

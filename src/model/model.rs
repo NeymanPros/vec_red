@@ -3,6 +3,7 @@ use libloading::Library;
 use crate::app::undo_manager::UndoManager;
 use super::borrow_model::*;
 use super::own_model::*;
+use super::borrow_types::*;
 
 /// Tools to draw [Framework].
 #[derive(Debug)]
@@ -27,10 +28,37 @@ impl Model {
             )
         }
     }
-    pub(super) fn is_borrowed(&self) -> bool {
+    pub fn is_borrowed(&self) -> bool {
         match self {
             Model::Own{..} => false,
             _ => true
+        }
+    }
+}
+
+impl Model {
+    pub fn tb_point_ref(&self, num: usize) -> Option<&mut TBPoint> {
+        match self {
+            Model::Borrow{model} => { model.tb_point_ref(num) },
+            _ => None
+        }
+    }
+    pub fn t_primitive_ref(&self, num: usize) -> Option<&mut TPrimitive> {
+        match self {
+            Model::Borrow{model} => { model.t_primitive_ref(num) },
+            _ => None
+        }
+    }
+    pub fn t_node_ref(&self, num: usize) -> Option<&mut TNode> {
+        match self {
+            Model::Borrow{model} => { model.t_node_ref(num) },
+            _ => None
+        }
+    }
+    pub fn t_element_ref(&self, num: usize) -> Option<&mut TElement> {
+        match self {
+            Model::Borrow{model} => { model.t_element_ref(num) },
+            _ => None
         }
     }
 }
@@ -66,10 +94,10 @@ impl Model {
             Self::Borrow { model } => model.get_elem(index)
         }
     }
-    pub fn point_set(&mut self, num: usize, point: (Point, f32)) {
+    pub fn point_set(&mut self, num: usize, point: Point, point_r: f32) {
         match self {
-            Self::Own { model } => model.points[num] = point,
-            Self::Borrow { model } => model.point_set(num, point)
+            Self::Own { model } => model.points[num] = (point, point_r),
+            Self::Borrow { model } => model.point_set(num, point, point_r)
         }
     }
 
@@ -181,6 +209,16 @@ impl Model {
             Self::Borrow { model } => model.prims_retain_safe(f, journal)
         }
     }
+
+    pub fn sync_everything(&mut self) {
+        match self {
+            Model::Borrow {model} => {
+                model.sync_everything();
+            },
+            _ => {}
+        }
+    }
+
 }
 
 impl Default for Model {

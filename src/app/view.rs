@@ -1,5 +1,5 @@
 use iced::{Center, Fill};
-use iced::widget::{container, row, stack, Scrollable, button, text, text_editor, Column, column, Slider};
+use iced::widget::{container, row, stack, Scrollable, button, text, text_editor, Column, column, Slider, text_input};
 use crate::{Message, VecRed};
 use crate::model::framework::Framework;
 use std::default::Default;
@@ -61,11 +61,11 @@ impl VecRed {
         let sep_2 = make_separator();
         
         let num = match self.chosen_point {
-            None => { String::default() }
-            _ => { self.chosen_point.unwrap().2.to_string() }
+            None => { None }
+            _ => { Some(self.chosen_point.unwrap().2) }
         };
         let mut point_info: Column<Message> = Column::new();
-        if !num.is_empty() {
+        if let Some(num) = num {
             point_info = self.about_point(num);
             point_info = point_info.push(make_separator())
         }
@@ -76,8 +76,8 @@ impl VecRed {
         let sep_3 = make_separator();
 
         let for_path = text_editor(&self.path_to_load).on_action(Message::EditPath).placeholder("/path/to/model");
-        let export_model = button("Export model").on_press(Message::ExportModel);
         let open_model = button("Open model").on_press(Message::OpenModel);
+        let export_model = button("Export model").on_press(Message::ExportModel);
         let sep_4 = make_separator();
         
         let foreign_functions = self.foreign_functions();
@@ -89,7 +89,7 @@ impl VecRed {
             text("Change scale"), change_scale, text("Change default circle"), change_circle, sep_2, 
             point_info, 
             undo_button, shrink, clear_all, sep_3, 
-            for_path, export_model, open_model, sep_4, 
+            for_path, open_model, export_model, sep_4, 
             foreign_functions, sep_5, 
             settings).spacing(5).align_x(Center);
         
@@ -97,14 +97,25 @@ impl VecRed {
     }
 
     /// Part of the panel about selected [Point].
-    fn about_point(&self, num: String) -> Column<'_, Message> {
-        let point_number = text("Number of point: ".to_owned() + num.as_str());
-        let point_x = row![text("X: "), text_editor(&self.change_point[0]).on_action(|action| Message::ChangePoint(0, action))];
-        let point_y = row![text("Y: "), text_editor(&self.change_point[1]).on_action(|action| Message::ChangePoint(1, action))];
-        let point_circle = row![text("R: "), text_editor(&self.change_point[2]).on_action(|action| Message::ChangePoint(2, action))];
+    fn about_point(&self, num: usize) -> Column<'_, Message> {
+        let point_number = text(format!("Number of point: {}", num));
+        
+        let input = |order: usize| { 
+            text_input("", &self.point_string[order]).on_input(move |text| Message::ChangeParams("point", num, text, order)) 
+        };
+        let point_x = row![text("X: "), input(0)];
+        let point_y = row![text("Y: "), input(1)];
+        let point_circle = row![text("R: "), input(2)];
+        
         let point_apply = row![button("Apply").on_press(Message::ChangeApply)];
         let point_delete = row![button("Delete").on_press(Message::DeletePoint)];
-        column![point_number, point_x, point_y, point_circle, point_apply, point_delete].align_x(Center).spacing(5)
+        
+        column![
+            point_number, 
+            point_x, point_y, point_circle, 
+            point_apply, point_delete, 
+            self.full_point(self.chosen_point.unwrap().2)
+        ].align_x(Center).spacing(5)
     }
     
     /// Part of the panel calling foreign functions

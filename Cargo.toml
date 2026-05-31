@@ -7,4 +7,4 @@ edition = "2021"
 iced = {version = "0.13.1", features=["canvas"]}
 libloading = "0.8.0"
 csv = "1.4.0"
-serde = "1.0.228"
+serde = { version = "1.0.228", features = ["serde_derive"]}

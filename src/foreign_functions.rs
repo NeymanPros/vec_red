@@ -1,11 +1,18 @@
 use std::rc::Rc;
 use iced::Point;
 use libloading::{Library, Symbol};
-use crate::model::borrow_model::*;
+use crate::model::borrow_types::*;
 
 pub fn f_init_model(lib: Rc<Library>) {
     unsafe {
         let func: Symbol<unsafe fn()> = lib.get(b"FInitModel").unwrap();
+        func()
+    }
+}
+
+pub fn f_del_memo_model(lib: Rc<Library>) {
+    unsafe {
+        let func: Symbol<unsafe fn()> = lib.get(b"FDelMemoModel").unwrap();
         func()
     }
 }
@@ -36,6 +43,13 @@ pub fn f_create_prim(lib: Rc<Library>, prim: &[i32; 3]) -> i32 {
     }
 }
 
+pub fn f_del_prim(lib: Rc<Library>, index: i32) {
+    unsafe {
+        let func: Symbol<fn (i32) -> bool> = lib.get(b"FDelPrim").expect("No del point");
+        func(index);
+    }
+}
+
 #[allow(non_snake_case)]
 pub fn f_create_region(lib: Rc<Library>, point: &Point) -> i32 {
     unsafe {
@@ -61,7 +75,7 @@ pub fn f_create_region(lib: Rc<Library>, point: &Point) -> i32 {
 
 pub fn f_build_fm(lib: Rc<Library>) -> bool {
     unsafe {
-        let func: Symbol<unsafe fn() -> bool> = lib.get(b"FBuildFM").expect("No build fm");
+        let func: Symbol<unsafe fn() -> bool> = lib.get(b"FBuildFM").expect("No build fm found");
         func()
     }
 }
@@ -123,15 +137,18 @@ pub fn f_open_dat(lib: Rc<Library>, path: &String) -> bool {
         return false
     }
     let file_name = path_vec.pop().unwrap().to_string();
+    
     let file_dir: String = path_vec.into_iter().map(|a| {
         a.to_owned() + "/"
     }).collect();
     
     let mut arr_name: [u8; 256] = [0; 256];
-    for (i, byte) in file_name.bytes().enumerate() {
+    let short_name = &file_name[0..(file_name.len() - 4)];
+    for (i, byte) in short_name.bytes().enumerate() {
         arr_name[i] = byte;
     }
-    arr_name[file_name.len()] = b'\0';
+    arr_name[short_name.len()] = b'\0';
+    println!("{}, {}", file_name, short_name);
 
     let mut arr_dir: [u8; 256] = [0; 256];
     for (i, byte) in file_dir.bytes().enumerate() {
@@ -156,7 +173,7 @@ pub fn f_save_dat(lib: Rc<Library>, path: String) -> bool {
     let file_dir: String = path_vec.into_iter().map(|a| {
         a.to_owned() + "/"
     }).collect();
-
+    
     let mut arr_name: [u8; 256] = [0; 256];
     for (i, byte) in file_name.bytes().enumerate() {
         arr_name[i] = byte;
@@ -168,9 +185,20 @@ pub fn f_save_dat(lib: Rc<Library>, path: String) -> bool {
         arr_dir[i] = byte;
     }
     arr_dir[file_dir.len()] = b'\0';
-    
+
+
     unsafe {
         let func: Symbol<unsafe fn(&[u8; 256], &[u8; 256]) -> bool> = lib.get(b"FSaveDat").expect("No FSaveDat");
         func(&arr_dir, &arr_name)
+    }
+}
+
+pub fn f_set_point(lib: Rc<Library>, index: i32, point: &Point) {
+    unsafe {
+        let func_x: Symbol<fn (i32, f64)> = lib.get(b"FSetXPoint").expect("No set x point");
+        let func_y : Symbol<fn (i32, f64)> = lib.get(b"FSetYPoint").expect("No set y point");
+        
+        func_x(index, point.x as f64);
+        func_y(index, point.y as f64);
     }
 }

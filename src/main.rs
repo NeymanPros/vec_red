@@ -3,39 +3,12 @@ mod app;
 mod foreign_functions;
 mod app_config;
 
-use std::rc::Rc;
-use app::undo_manager::UndoManager;
-use app_config::app_config::{AppConfig, Change};
-use model::framework::State;
-use crate::model::Model;
+use app_config::app_config::Change;
 
 use iced::{Point, Size, Vector};
 use iced::widget::text_editor;
+use app::core::VecRed;
 
-use libloading::Library;
-
-/// Main event loop.
-struct VecRed {
-    path_to_load: text_editor::Content,
-    journal: UndoManager,
-
-    state: State,
-    model: Model,
-
-    /// Point, radius, number in dots.
-    chosen_point: Option<(Point, f32, usize)>,
-    /// Stands for X, Y, radius.
-    change_point: [text_editor::Content; 3],
-
-    modes: [&'static str; 5],
-    mode: &'static str,
-
-    app_config: AppConfig,
-    scale: f32,
-    default_circle: f32,
-
-    lib: Option<Rc<Library>>
-}
 
 /// Messages produced by [VecRed]
 #[derive(Debug, Clone)]
@@ -52,10 +25,12 @@ enum Message {
     ExportModel,
     /// Load model from a file.
     OpenModel,
-    ChangePoint(usize, text_editor::Action),
-    ChangeApply,
     EditScale(&'static str, f32),
     DeletePoint,
+
+    ChangeApply,
+    /// What, index, new_value, number of a field.
+    ChangeParams(&'static str, usize, String, usize), 
     
     WindowResized(Size),
     ZoomScale(f32),
@@ -68,28 +43,6 @@ enum Message {
     OpenMathCore,
     CreateRegion(Point),
     CreateTriangle
-}
-
-impl Default for VecRed {
-    fn default() -> Self {
-        Self {
-            journal: UndoManager::default(),
-            path_to_load: text_editor::Content::default(),
-            modes: ["Move", "Point", "Line", "Arc", "Region"],
-            mode: "Move",
-            chosen_point: None,
-            change_point: [text_editor::Content::default(), text_editor::Content::default(), text_editor::Content::default()],
-
-            state: State::default(),
-            model: Model::default(),
-
-            app_config: AppConfig::default(),
-            scale: 1.0,
-            default_circle: 20.0,
-
-            lib: None
-        }
-    }
 }
 
 

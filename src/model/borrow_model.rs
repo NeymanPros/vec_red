@@ -3,6 +3,7 @@ use iced::Point;
 use libloading::Library;
 use crate::app::undo_manager::UndoManager;
 use crate::foreign_functions::*;
+use super::borrow_types::*;
 
 #[allow(unused_lifetimes)]
 #[derive(Debug)]
@@ -42,20 +43,40 @@ impl BorrowModel {
         self.points_len = points.1;
     }
     pub(super) fn sync_prims(&mut self) {
-        let points = get_points_ref(self.lib.clone());
-        self.points_len = points.1;
+        let prims = get_prims_ref(self.lib.clone());
+        //self.prims_ref = prims.0;
+        self.prims_len = prims.1;
     }
     pub(super) fn sync_nodes(&mut self) {
-        let points = get_points_ref(self.lib.clone());
-        self.points_len = points.1;
+        let nodes = get_nodes_ref(self.lib.clone());
+        //self.nodes_ref = nodes.0;
+        self.nodes_len = nodes.1;
     }
     pub(super) fn sync_elems(&mut self) {
-        let points = get_points_ref(self.lib.clone());
-        self.points_len = points.1;
+        let elems = get_elems_ref(self.lib.clone());
+        self.elems_len = elems.1;
+    }
+    
+    pub(super) fn sync_everything(&mut self) {
+        self.sync_points();
+        self.sync_prims();
+        self.sync_nodes();
+        self.sync_elems();
     }
 }
 
 impl BorrowModel {
+    pub(super) fn tb_point_ref(&self, index: usize) -> Option<&mut TBPoint> {
+        if index < self.points_len as usize {
+            unsafe {
+                Some(
+                    &mut *(*self.points_ref).add(index)
+                )
+            }
+        } else {
+            None
+        }
+    }
     pub(super) fn get_point(&self, index: usize) -> Point {
         assert!(index < self.points_len as usize);
         unsafe {
@@ -69,13 +90,12 @@ impl BorrowModel {
             (*(*self.points_ref).add(index)).r as f32
         }
     }
-    pub(super) fn point_set(&mut self, num: usize, point: (Point, f32)) {
+    pub(super) fn point_set(&mut self, num: usize, point: Point, point_r: f32) {
         unsafe {
             assert!(num < self.points_len as usize);
             let points = std::slice::from_raw_parts_mut(*self.points_ref, self.points_len as usize);
-            points[num].x = point.0.x as f64;
-            points[num].y = point.0.y as f64;
-            points[num].r = point.1 as f64;
+            f_set_point(self.lib.clone(), num as i32, &point);
+            points[num].r = point_r as f64;
         }
     }
     pub(super) fn points_len(&self) -> usize { self.points_len as usize }
@@ -94,12 +114,22 @@ impl BorrowModel {
     pub(super) fn points_pop(&mut self) {
         if self.points_len >= 1 {
             f_del_point(self.lib.clone(), self.points_len - 1);
-            self.points_len -= 1;
+            self.sync_points()
         }
-        //self.sync_points()
+    }
+    
+    pub(super) fn t_primitive_ref(&self, index: usize) -> Option<&mut TPrimitive> {
+        if index < self.prims_len as usize {
+            unsafe {
+                Some(
+                    &mut *(*self.prims_ref).add(index)
+                )
+            }
+        } else {
+            None
+        }
     }
     pub(super) fn get_prim(&self, index: usize) -> &[i32; 3] {
-        println!("len: {}, index: {}", self.prims_len, index);
         assert!((index as i32) < self.prims_len);
         unsafe { 
             &(*(*self.prims_ref).add(index)).p
@@ -109,17 +139,31 @@ impl BorrowModel {
     pub(super) fn prims_len(&self) -> usize { self.prims_len as usize }
 
     pub(super) fn prims_push(&mut self, prim: [i32; 3]) {
-        //self.prims.push(TPrimitive {p: prim, ..Default::default()})
         f_create_prim(self.lib.clone(), &prim);
+        self.sync_everything()
     }
     pub(super) fn prims_insert(&mut self, index: usize, element: [i32; 3]) {
+        todo!();
         //self.prims.insert(index, TPrimitive {p: element, ..Default::default()})
+        
     }
     pub(super) fn prims_pop(&mut self) {
-        if self.prims_len == 0 {
-            return;
+        if self.prims_len >= 1 {
+            f_del_prim(self.lib.clone(), self.prims_len - 1);
+            self.sync_prims();
         }
-        
+    }
+
+    pub(super) fn t_node_ref(&self, index: usize) -> Option<&mut TNode> {
+        if index < self.nodes_len as usize {
+            unsafe {
+                Some(
+                    &mut *(*self.nodes_ref).add(index)
+                )
+            }
+        } else {
+            None
+        }
     }
     pub(super) fn nodes_len(&self) -> usize {
         self.nodes_len as usize
@@ -129,6 +173,18 @@ impl BorrowModel {
         unsafe {
             let t_node = &(*(*self.nodes_ref).add(index));
             Point::new(t_node.x as f32, t_node.y as f32)
+        }
+    }
+
+    pub(super) fn t_element_ref(&self, index: usize) -> Option<&mut TElement> {
+        if index < self.elems_len as usize {
+            unsafe {
+                Some(
+                    &mut *(*self.elems_ref).add(index)
+                )
+            }
+        } else {
+            None
         }
     }
     pub(super) fn elems_len(&self) -> usize {
@@ -150,6 +206,7 @@ impl BorrowModel {
 
 impl BorrowModel {
     pub(super) fn clear(&mut self) {
+        f_del_memo_model(self.lib.clone());
         self.points_len = 0;
         self.prims_len = 0;
         self.nodes_len = 0;
@@ -238,68 +295,4 @@ impl BorrowModel {
             self.prims_len = prims.len() as i32;
         }
     }
-}
-
-#[allow(non_snake_case, dead_code)]
-#[derive(Clone, Debug, Default)]
-#[repr(C)]
-pub(crate) struct TBPoint {
-    x: f64, 
-    y: f64, 
-    r: f64,
-    TypPoint: u8, 
-    Vp: f64,
-    Ip: f64,
-    NNode: i32,
-}
-
-#[allow(non_snake_case, dead_code)]
-#[derive(Debug, Default)]
-#[repr(C)]
-pub(crate) struct TPrimitive {
-    p: [i32; 3],
-    TypPrim: u8, 
-    IsFront: bool, 
-    Vp: f64,
-    Ip: f64 
-}
-
-#[allow(non_snake_case, dead_code)]
-#[derive(Debug)]
-#[repr(C)]
-pub(crate) struct TNode {
-    x: f64, 
-    y: f64,
-    VP: f64,
-    TypNode: u8,
-    PNode: i32, 
-    KolSW: i32, 
-    NSW: *mut i32,//array of integer
-    KolSI: i32,
-    NSI: *mut i32, //array of integer
-    NSK: *mut i8, //array of shortint; //êàêèì ïî ñ÷åòó äàííûé óçåë èäåò â îïèñàíèè ýëåìåíòà âîêðóã äàííîãî óçëà
-    vKolSWMemo: i32,
-    vKolSIMemo: i32, 
-    F: f64,
-    Yp: f64
-}
-
-#[allow(non_snake_case, dead_code)]
-#[derive(Debug)]
-#[repr(C)]
-pub(crate) struct TElement {
-    m: [i32; 3],
-    IZP: i16, 
-    //================================
-    Px: f64,
-    Py: f64, 
-    XNJU: f64, 
-    A1: f64, 
-    Delta: f64,
-    xs: f64,
-    ys: f64,
-    S: [f64; 6], //array[1..6] of double;
-    A: [f64; 3],
-    B: [f64; 3],
-    C: [f64; 3]
 }
