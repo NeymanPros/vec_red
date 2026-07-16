@@ -27,6 +27,7 @@ enum Message {
     OpenModel,
     EditScale(&'static str, f32),
     DeletePoint,
+    FindEverything(f64, f64),
 
     ChangeApply,
     /// What, index, new_value, number of a field.

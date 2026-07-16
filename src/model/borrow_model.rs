@@ -16,6 +16,7 @@ pub(super) struct BorrowModel {
     nodes_len: i32,
     elems_ref: *const *mut TElement,
     elems_len: i32,
+    regions_ref: *const *mut TRegion,
 
     lib: Rc<Library>
 }
@@ -24,8 +25,9 @@ impl BorrowModel {
     pub(super) fn new(lib: Rc<Library>, 
                       points_ref: (*const *mut TBPoint, i32), 
                       prims_ref: (*const *mut TPrimitive, i32), 
-                      nodes_ref: (*const *mut TNode, i32), 
-                      elems_ref: (*const *mut TElement, i32)) -> Self {
+                      nodes_ref: (*const *mut TNode, i32),
+                      elems_ref: (*const *mut TElement, i32),
+                      regions_ref: *const *mut TRegion) -> Self {
         Self {
             lib: lib.clone(),
             points_ref: points_ref.0,
@@ -36,6 +38,7 @@ impl BorrowModel {
             nodes_len: nodes_ref.1,
             elems_ref: elems_ref.0,
             elems_len: elems_ref.1,
+            regions_ref
         }
     }
     pub(super) fn sync_points(&mut self) {
@@ -168,7 +171,7 @@ impl BorrowModel {
     pub(super) fn nodes_len(&self) -> usize {
         self.nodes_len as usize
     }
-    pub(super) fn get_node(&self, index: usize) -> Point {
+    pub(super) fn node(&self, index: usize) -> Point {
         assert!((index as i32) < self.nodes_len);
         unsafe {
             let t_node = &(*(*self.nodes_ref).add(index));
@@ -176,24 +179,25 @@ impl BorrowModel {
         }
     }
 
-    pub(super) fn t_element_ref(&self, index: usize) -> Option<&mut TElement> {
+    pub(super) fn elems_len(&self) -> usize {
+        self.elems_len as usize
+    }
+    pub(super) fn elem(&self, index: usize) -> &[i32; 3] {
+        assert!((index as i32) < self.elems_len);
+        unsafe {
+            &(*(*self.elems_ref).add(index)).m
+        }
+    }
+    
+    pub(super) fn t_region_ref(&self, index: usize) -> Option<&mut TRegion> {
         if index < self.elems_len as usize {
             unsafe {
                 Some(
-                    &mut *(*self.elems_ref).add(index)
+                    &mut *(*self.regions_ref).add(index)
                 )
             }
         } else {
             None
-        }
-    }
-    pub(super) fn elems_len(&self) -> usize {
-        self.elems_len as usize
-    }
-    pub(super) fn get_elem(&self, index: usize) -> &[i32; 3] {
-        assert!((index as i32) < self.elems_len);
-        unsafe {
-            &(*(*self.elems_ref).add(index)).m
         }
     }
 }

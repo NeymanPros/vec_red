@@ -7,6 +7,8 @@ impl VecRed {
         let number = self.model.find_point(point, self.scale, self.app_config.zoom.scale);
         if self.mode == "Region" && number == self.model.points_len() {
             self.update(Message::CreateRegion(point))
+        } else if self.mode == "Find" {
+            self.update(Message::FindEverything(point.x as f64, point.y as f64))
         } else {
             if number == self.model.points_len() {
                 self.journal.pushed_point();

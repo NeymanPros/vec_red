@@ -75,13 +75,13 @@ impl VecRed {
         let prims_ref = get_prims_ref(lib.clone());
         let nodes_ref = get_nodes_ref(lib.clone());
         let elems_ref = get_elems_ref(lib.clone());
+        let regions_ref = get_regions_ref(lib.clone());
         let library = self.lib.as_ref().unwrap().clone();
-        self.model.make_borrow(library, points_ref, prims_ref, nodes_ref, elems_ref);
+        self.model.make_borrow(library, points_ref, prims_ref, nodes_ref, elems_ref, regions_ref);
         
         impl_field_setter![TBPoint, x: f64, y: f64, r: f64, TypPoint: u8, Vp: f64, Ip: f64, NNode: i32, ];
         impl_field_setter![TPrimitive, p: [i32; 3], TypPrim: u8, IsFront: bool, Vp: f64, Ip: f64, ];
-        //impl_field_setter![TNode, x: f64, y: f64, VP: f64, TypNode: u8, PNode: i32, KolSW: i32, NSW: *mut i32, KolSI: i32, NSI: *mut i32, NSK: *mut i8, vKolSWMemo: i32, vKolSIMemo: i32, F: f64, Yp: f64, ];
-        impl_field_setter![TElement, m: [i32; 3], IZP: i16, Px: f64, Py: f64, XNJU: f64, A1: f64, Delta: f64, xs: f64, ys: f64, S: [f64; 6], A: [f64; 3], B: [f64; 3], C: [f64; 3], ];
+        impl_field_setter![TRegion, TriW: bool, CNu: f64, PrMag: u8, Px: f64, Py: f64, W: f64, Ip: f64, ];
         println!("Finished");
         self.state.redraw();
     }

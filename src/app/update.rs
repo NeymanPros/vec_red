@@ -1,6 +1,8 @@
 use crate::{Message, VecRed};
 use crate::app_config::app_config::Change;
+use crate::foreign_functions::*;
 use crate::model::load_model;
+use super::core::CallByName;
 
 impl VecRed {
     pub fn update(&mut self, message: Message) {
@@ -58,11 +60,24 @@ impl VecRed {
                     self.chosen_point.as_mut().unwrap().0 = self.model.points(num);
                     self.chosen_point.as_mut().unwrap().1 = self.model.points_r(num);
                 }
-                else{
+                else {
                     self.chosen_point = None;
                 }
                 self.mode = "Move";
                 self.state.redraw();
+            }
+            
+            Message::FindEverything(x, y) => {
+                if let Some(lib) = self.lib.as_ref() {
+                    let prim = f_get_prim_xy(lib.clone(), x, y);
+                    let node = f_get_node_xy(lib.clone(), x, y);
+                    let region = f_get_region_xy(lib.clone(), x, y);
+                    
+                    self.chosen_elems = Some(CallByName{prim, node, region})
+                }
+                else {
+                    println!("Math core must be!")
+                }
             }
 
             Message::ChangeParams(what, index, new_value, order) => {

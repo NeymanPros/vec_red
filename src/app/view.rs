@@ -69,6 +69,15 @@ impl VecRed {
             point_info = self.about_point(num);
             point_info = point_info.push(make_separator())
         }
+        
+        let mut full_info = Column::new();
+        if let Some(all_indexes) = self.chosen_elems.as_ref() {
+            let prim = self.full_prim(all_indexes.prim);
+            let node = self.full_node(all_indexes.node);
+            let region = self.full_region(all_indexes.region);
+            
+            full_info = column![prim, make_separator(), node, make_separator(), region, make_separator()]
+        }
 
         let undo_button = button("Undo").on_press(Message::Undo);
         let shrink = self.shrink_to_fit();
@@ -88,6 +97,7 @@ impl VecRed {
         let full_panel = column!(mode, sep_1, 
             text("Change scale"), change_scale, text("Change default circle"), change_circle, sep_2, 
             point_info, 
+            full_info,
             undo_button, shrink, clear_all, sep_3, 
             for_path, open_model, export_model, sep_4, 
             foreign_functions, sep_5, 
@@ -109,12 +119,14 @@ impl VecRed {
         
         let point_apply = row![button("Apply").on_press(Message::ChangeApply)];
         let point_delete = row![button("Delete").on_press(Message::DeletePoint)];
+
+        let full_point = self.full_point(self.chosen_point.unwrap().2);
         
         column![
             point_number, 
             point_x, point_y, point_circle, 
             point_apply, point_delete, 
-            self.full_point(self.chosen_point.unwrap().2)
+            full_point
         ].align_x(Center).spacing(5)
     }
     

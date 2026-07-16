@@ -44,7 +44,6 @@ impl VecRed {
         else {
             match what {
                 "point" => {
-                    //self.point_string[order] = new_value;
                     let point = self.model.tb_point_ref(index).unwrap();
                     let _ = point.set_field_by_index(order, &new_value);
                 },
@@ -52,12 +51,9 @@ impl VecRed {
                     let prim = self.model.t_primitive_ref(index).unwrap();
                     let _ = prim.set_field_by_index(order, &new_value);
                 },
-                "node" => {
-                    
-                }
-                "elem" => {
-                    let elem = self.model.t_element_ref(index).unwrap();
-                    let _ = elem.set_field_by_index(order, &new_value);
+                "region" => {
+                    let region = self.model.t_region_ref(index).unwrap();
+                    let _ = region.set_field_by_index(order, &new_value);
                 }
                 _ => panic!("No such thing to change!")
             }

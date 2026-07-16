@@ -96,15 +96,15 @@ pub fn get_bm_only(lib: Rc<Library>, i: i32) -> f32 {
     bm as f32
 }
 
-pub fn get_points_ref(lib: Rc<Library>) -> (*const *mut TBPoint,/* *mut*/ i32) {
+pub fn get_points_ref(lib: Rc<Library>) -> (*const *mut TBPoint, i32) {
     unsafe {
         let func1: Symbol<fn () -> *const *mut TBPoint> = lib.get(b"FGetPPoints").expect("No get points ref!");
-        let func2: Symbol<fn () ->/* *mut*/ i32> = lib.get(b"FGetNPoint").expect("No get points len!");
+        let func2: Symbol<fn () -> i32> = lib.get(b"FGetNPoint").expect("No get points len!");
         (func1(), func2())
     }
 }
 
-pub fn get_prims_ref(lib: Rc<Library>) -> (*const *mut TPrimitive,/* *mut*/ i32) {
+pub fn get_prims_ref(lib: Rc<Library>) -> (*const *mut TPrimitive, i32) {
     unsafe {
         let func1: Symbol<fn () -> *const *mut TPrimitive> = lib.get(b"FGetPPrim").expect("No get prims ref!");
         let func2: Symbol<fn () -> i32> = lib.get(b"FGetNPrim").expect("No get prims len!");
@@ -112,7 +112,7 @@ pub fn get_prims_ref(lib: Rc<Library>) -> (*const *mut TPrimitive,/* *mut*/ i32)
     }
 }
 
-pub fn get_nodes_ref(lib: Rc<Library>) -> (*const *mut TNode,/* *mut*/ i32) {
+pub fn get_nodes_ref(lib: Rc<Library>) -> (*const *mut TNode, i32) {
     unsafe {
         let func1: Symbol<fn () -> *const *mut TNode> = lib.get(b"FGetPNode").expect("No get nodes ref!");
         let func2: Symbol<fn () -> i32> = lib.get(b"FGetNNode").expect("No get nodes len!");
@@ -120,11 +120,19 @@ pub fn get_nodes_ref(lib: Rc<Library>) -> (*const *mut TNode,/* *mut*/ i32) {
     }
 }
 
-pub fn get_elems_ref(lib: Rc<Library>) -> (*const *mut TElement,/* *mut*/ i32) {
+pub fn get_elems_ref(lib: Rc<Library>) -> (*const *mut TElement, i32) {
     unsafe {
         let func1: Symbol<fn () -> *const *mut TElement> = lib.get(b"FGetPElem").expect("No get elems ref!");
         let func2: Symbol<fn () -> i32> = lib.get(b"FGetNElem").expect("No get elems len!");
         (func1(), func2())
+    }
+}
+
+pub fn get_regions_ref(lib: Rc<Library>) -> *const *mut TRegion {
+    unsafe {
+        let func1: Symbol<fn () -> *const *mut TRegion> = lib.get(b"FGetPReg").expect("No get region ref!");
+        //let func2: Symbol<fn () -> i32> = lib.get(b"FGetNReg").expect("No get region len!");
+        func1()
     }
 }
 
@@ -200,5 +208,33 @@ pub fn f_set_point(lib: Rc<Library>, index: i32, point: &Point) {
         
         func_x(index, point.x as f64);
         func_y(index, point.y as f64);
+    }
+}
+
+pub fn f_get_point_xy(lib: Rc<Library>, x: f64, y: f64) -> i32 {
+    unsafe {
+        let func: Symbol<fn (f64, f64) -> i32> = lib.get(b"FGetPointXY").expect("No get point xy");
+        func(x, y)
+    }
+}
+
+pub fn f_get_prim_xy(lib: Rc<Library>, x: f64, y: f64) -> i32 {
+    unsafe {
+        let func: Symbol<fn (f64, f64) -> i32> = lib.get(b"FGetPrimXY").expect("No get prim xy");
+        func(x, y)
+    }
+}
+
+pub fn f_get_node_xy(lib: Rc<Library>, x: f64, y: f64) -> i32 {
+    unsafe {
+        let func: Symbol<fn (f64, f64) -> i32> = lib.get(b"FGetNodeXY").expect("No get node xy");
+        func(x, y)
+    }
+}
+
+pub fn f_get_region_xy(lib: Rc<Library>, x: f64, y: f64) -> i32 {
+    unsafe {
+        let func: Symbol<fn (f64, f64) -> i32> = lib.get(b"FGetRegXY").expect("No get reg xy");
+        func(x, y)
     }
 }

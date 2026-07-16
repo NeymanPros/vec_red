@@ -7,6 +7,12 @@ use crate::app_config::AppConfig;
 use crate::model::framework::State;
 use crate::model::Model;
 
+pub(super) struct CallByName {
+    pub prim: i32,
+    pub node: i32, 
+    pub region: i32
+}
+
 /// Main event loop.
 pub struct VecRed {
     pub path_to_load: text_editor::Content,
@@ -17,10 +23,12 @@ pub struct VecRed {
 
     /// Point, radius, number in points.
     pub chosen_point: Option<(Point, f32, usize)>,
+    pub chosen_elems: Option<CallByName>,
     
+    /// Can be 3 or 0, depends on [chosen_point].
     pub point_string: Vec<String>,
 
-    pub modes: [&'static str; 5],
+    pub modes: [&'static str; 6],
     pub mode: &'static str,
 
     pub app_config: AppConfig,
@@ -35,9 +43,11 @@ impl Default for VecRed {
         Self {
             journal: UndoManager::default(),
             path_to_load: text_editor::Content::default(),
-            modes: ["Move", "Point", "Line", "Arc", "Region"],
+            modes: ["Move", "Point", "Line", "Arc", "Region", "Find"],
             mode: "Move",
+            
             chosen_point: None,
+            chosen_elems: None,
             
             point_string: vec![],
             

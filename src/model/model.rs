@@ -14,17 +14,19 @@ pub enum Model {
 
 impl Model {
     pub fn make_borrow(&mut self, lib: std::rc::Rc<Library>, 
-                       points_ref: (*const *mut TBPoint, /* *mut*/ i32),
+                       points_ref: (*const *mut TBPoint, i32),
                        prims_ref: (*const *mut TPrimitive, i32),
                        nodes_ref: (*const *mut TNode, i32),
-                       elems_ref: (*const *mut TElement, i32)) {
+                       elems_ref: (*const *mut TElement, i32),
+                       regions_ref: *const *mut TRegion) {
         *self = Self::Borrow {
             model: BorrowModel::new (
                 lib, 
                 points_ref,
                 prims_ref, 
                 nodes_ref, 
-                elems_ref
+                elems_ref,
+                regions_ref
             )
         }
     }
@@ -39,25 +41,26 @@ impl Model {
 impl Model {
     pub fn tb_point_ref(&self, num: usize) -> Option<&mut TBPoint> {
         match self {
-            Model::Borrow{model} => { model.tb_point_ref(num) },
+            Model::Borrow{model} => model.tb_point_ref(num),
             _ => None
         }
     }
     pub fn t_primitive_ref(&self, num: usize) -> Option<&mut TPrimitive> {
         match self {
-            Model::Borrow{model} => { model.t_primitive_ref(num) },
+            Model::Borrow{model} => model.t_primitive_ref(num),
             _ => None
         }
     }
     pub fn t_node_ref(&self, num: usize) -> Option<&mut TNode> {
         match self {
-            Model::Borrow{model} => { model.t_node_ref(num) },
+            Model::Borrow{model} => model.t_node_ref(num),
             _ => None
         }
     }
-    pub fn t_element_ref(&self, num: usize) -> Option<&mut TElement> {
+    
+    pub fn t_region_ref(&self, num: usize) -> Option<&mut TRegion> {
         match self {
-            Model::Borrow{model} => { model.t_element_ref(num) },
+            Model::Borrow {model} => model.t_region_ref(num),
             _ => None
         }
     }
@@ -85,13 +88,13 @@ impl Model {
     pub fn nodes(&self, index: usize) -> Point {
         match self {
             Self::Own { model } => model.node_points[index],
-            Self::Borrow { model } => model.get_node(index)
+            Self::Borrow { model } => model.node(index)
         }
     }
     pub fn elems(&self, index: usize) -> &[i32; 3] {
         match self {
             Self::Own { model } => &model.node_lines[index],
-            Self::Borrow { model } => model.get_elem(index)
+            Self::Borrow { model } => model.elem(index)
         }
     }
     pub fn point_set(&mut self, num: usize, point: Point, point_r: f32) {

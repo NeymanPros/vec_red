@@ -3,7 +3,6 @@ use iced::event::Status;
 use iced::mouse::{Cursor, Interaction};
 use iced::widget::canvas;
 use iced::widget::canvas::{Event, Geometry};
-use libloading::Library;
 use crate::Message;
 use crate::app_config::AppConfig;
 use super::model::Model;
@@ -29,7 +28,7 @@ impl canvas::Program<Message> for Framework<'_> {
                 Drawing::SelectPoint { point, num } => {
                     *state = Drawing::LinePoint { point, num: Some(num) }
                 }
-                Drawing::ArcPoint { point, num} => {
+                Drawing::ArcPoint { point, num } => {
                     *state = Drawing::LinePoint { point, num }
                 }
                 _ => {}
@@ -39,7 +38,7 @@ impl canvas::Program<Message> for Framework<'_> {
                 Drawing::SelectPoint { point, num } => {
                     *state = Drawing::ArcPoint { point, num: Some(num)}
                 }
-                Drawing::LinePoint { point, num} => {
+                Drawing::LinePoint { point, num } => {
                     *state = Drawing::ArcPoint { point, num }
                 }
                 _ => {}
@@ -92,7 +91,7 @@ impl Framework<'_> {
             mouse::Event::ButtonPressed(mouse::Button::Left) => {
                 if state.as_str() != self.mode {
                     *state = match self.mode {
-                        "Point" | "Region" => { Drawing::Point {} }
+                        "Point" | "Region" | "Find" => { Drawing::Point {} }
                         "Line" => { Drawing::Line {} }
                         "Arc" => { Drawing::Arc }
                         _ => Drawing::None {}
