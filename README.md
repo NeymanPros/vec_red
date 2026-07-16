@@ -1,4 +1,4 @@
-**Vector editor** (*unfinished*)
+**Vector redactor**
 
 ---
 
